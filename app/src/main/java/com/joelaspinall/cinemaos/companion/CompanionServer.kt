@@ -112,7 +112,8 @@ class CompanionServer(
         text.lines().map { it.trim() }.filter { it.isNotBlank() && !it.equals("name\tyear", true) }.mapNotNull { line ->
             val tab = line.split('\t')
             val (title, year) = when {
-                tab.size >= 2 -> tab[0].trim() to tab[1].trim().take(4).toIntOrNull()
+                // Some Apple titles carry the year in the name, e.g. "Drive (2011)".
+                tab.size >= 2 -> tab[0].trim().replace(Regex("""\s*\(\d{4}\)$"""), "") to tab[1].trim().take(4).toIntOrNull()
                 Regex("""^(.*)\s*\((\d{4})\)\s*$""").matches(line) -> {
                     val m = Regex("""^(.*)\s*\((\d{4})\)\s*$""").find(line)!!
                     m.groupValues[1].trim() to m.groupValues[2].toInt()
