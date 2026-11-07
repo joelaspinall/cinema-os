@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 class CinemaApp : Application(), ImageLoaderFactory {
     lateinit var store: Store; private set
     lateinit var tmdb: Tmdb; private set
+    lateinit var omdb: com.joelaspinall.cinemaos.data.Omdb; private set
     lateinit var plex: Plex; private set
     lateinit var letterboxd: Letterboxd; private set
     lateinit var launcher: Launcher; private set
@@ -36,6 +37,7 @@ class CinemaApp : Application(), ImageLoaderFactory {
         Art.init(this)
         store = Store(this)
         tmdb = Tmdb(store)
+        omdb = com.joelaspinall.cinemaos.data.Omdb(store)
         plex = Plex(store)
         letterboxd = Letterboxd(store)
         launcher = Launcher(this)

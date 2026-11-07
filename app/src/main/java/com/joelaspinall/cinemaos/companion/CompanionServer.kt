@@ -65,6 +65,11 @@ class CompanionServer(
                 if (token.length < 20) "That doesn't look like a TMDB key — copy the whole thing."
                 else { store.updateSettings { it.copy(tmdbToken = token) }; onChanged("tmdb"); "TMDB key saved. The TV is loading your catalogues." }
             }
+            "/omdb" -> {
+                val key = v("key")
+                if (key.length < 6) "That doesn't look like an OMDb key — it's 8 letters and numbers from the email."
+                else { store.updateSettings { it.copy(omdbKey = key) }; onChanged("omdb"); "OMDb key saved. IMDb and Rotten Tomatoes scores will show on film pages (if the key isn't activated yet, click the link in OMDb's email)." }
+            }
             "/letterboxd" -> {
                 val user = v("user").removePrefix("@").substringAfter("letterboxd.com/").trim('/')
                 store.updateSettings { it.copy(letterboxdUser = user) }; onChanged("letterboxd")
@@ -173,6 +178,12 @@ Free at <a href="https://www.themoviedb.org/settings/api" target=_blank>themovie
 </section>
 
 <section>
+<h2>3b · OMDb key (IMDb &amp; Rotten Tomatoes)</h2>
+<p class=dim>${if (s.omdbKey.isNotBlank()) "Key saved ✓" else "Optional. Free at <a href=\"https://www.omdbapi.com/apikey.aspx\" target=_blank>omdbapi.com/apikey.aspx</a> — choose FREE, then activate it from the email."}</p>
+<form method=post action="/omdb?k=$k"><input name=key placeholder="Paste OMDb key" autocomplete=off> <button>Save</button></form>
+</section>
+
+<section>
 <h2>4 · Apple TV purchases</h2>
 <p class=dim>${if (d.appleOwned.isNotEmpty()) "${d.appleOwned.size} films in your Apple TV library${d.appleImportedAt?.let { " (updated $it)" } ?: ""}." else "Not imported yet."}
 Run the command from Claude on your Mac, then upload <b>apple-tv-films.txt</b> from your Desktop — or paste titles below, one per line.</p>
@@ -201,7 +212,7 @@ h1{font-size:28px;margin:8px 0 16px}h2{font-size:18px;margin:0 0 8px}section{bac
 .svc{margin:6px 0}select{font:inherit;background:#0e0e14;color:inherit;border:1px solid #3a3a48;border-radius:8px;padding:6px;max-width:100%}
 input{font:inherit;background:#0e0e14;color:inherit;border:1px solid #3a3a48;border-radius:8px;padding:8px 10px;max-width:100%}
 textarea{font:inherit;width:100%;box-sizing:border-box;background:#0e0e14;color:inherit;border:1px solid #3a3a48;border-radius:8px;padding:8px;margin:8px 0}
-input[name=token]{width:100%;box-sizing:border-box;margin-bottom:8px}button,.btn{font:inherit;background:#e8aa42;color:#0e0e14;border:0;border-radius:8px;padding:8px 14px;font-weight:600;text-decoration:none;display:inline-block;cursor:pointer}
+input[name=token],input[name=key]{width:100%;box-sizing:border-box;margin-bottom:8px}button,.btn{font:inherit;background:#e8aa42;color:#0e0e14;border:0;border-radius:8px;padding:8px 14px;font-weight:600;text-decoration:none;display:inline-block;cursor:pointer}
 ol{padding-left:20px}li{margin:8px 0}form{margin:8px 0}a{color:#e8aa42}.chk{display:inline-block;margin:4px 12px 4px 0}
 table{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}td,th{padding:6px 4px;border-bottom:1px solid #2a2a36;text-align:left}
 </style></head><body>$body</body></html>""",

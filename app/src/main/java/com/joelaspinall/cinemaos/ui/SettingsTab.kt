@@ -72,23 +72,28 @@ fun SettingsTab(vm: AppViewModel) {
         plexMsg = "The code expired — press Sign in to get a new one."
     }
 
+    Glide(PivotColumn) {
     LazyColumn(contentPadding = PaddingValues(bottom = 48.dp)) {
         item {
             Section("Phone companion") {
-                val url = c.companion.address()
+                var refresh by remember { mutableStateOf(0) }
+                val url = remember(refresh) { c.companion.address() }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (url != null) QrCode(url, 210.dp)
                     Column(Modifier.padding(start = 28.dp).width(620.dp)) {
                         Text("Scan with your phone (same Wi-Fi) to:", style = Type.body)
                         Gap(6.dp)
                         listOf(
-                            "Paste your TMDB key",
+                            "Paste your TMDB and OMDb keys",
                             "Upload your Letterboxd export (for history, ratings and watchlist)",
                             "Download new diary entries for letterboxd.com/import",
                             "Choose your services and plans",
                         ).forEach { Text("•  $it", style = Type.body.copy(color = Dim)) }
                         Gap(10.dp)
                         Text(url ?: "Not connected to a network.", style = Type.small)
+                        Gap(14.dp)
+                        // Something the remote can land on, so pressing up always brings this section back.
+                        Action("Refresh code", { refresh++ })
                         val waiting = data.diary.count { !it.exported }
                         if (waiting > 0) {
                             Gap(8.dp)
@@ -162,7 +167,7 @@ fun SettingsTab(vm: AppViewModel) {
         item {
             Section("App") {
                 Text("Cinema OS ${c.launcher.installedVersion()}", style = Type.body)
-                Text("TMDB: " + if (settings.tmdbToken.isNotBlank()) "key saved ✓" else "no key yet", style = Type.body.copy(color = Dim))
+                Text("TMDB: " + (if (settings.tmdbToken.isNotBlank()) "key saved ✓" else "no key yet") + "   ·   OMDb: " + (if (settings.omdbKey.isNotBlank()) "key saved ✓" else "no key yet (add it from your phone)"), style = Type.body.copy(color = Dim))
                 Gap(12.dp)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Action("Refresh everything", { vm.refresh(); vm.toast = "Refreshing…" })
@@ -176,5 +181,6 @@ fun SettingsTab(vm: AppViewModel) {
                 updateMsg?.let { Gap(10.dp); Text(it, style = Type.body.copy(color = Gold)) }
             }
         }
+    }
     }
 }

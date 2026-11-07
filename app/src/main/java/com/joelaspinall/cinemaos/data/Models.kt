@@ -107,6 +107,8 @@ data class StoreData(
 @Serializable
 data class Settings(
     val tmdbToken: String = "",
+    /** Free key from omdbapi.com, for IMDb and Rotten Tomatoes scores. */
+    val omdbKey: String = "",
     val letterboxdUser: String = "joelaspinall",
     val plexClientId: String = "",
     val plexToken: String = "",
@@ -135,6 +137,7 @@ data class FilmDetails(
     val genres: List<String>,
     val tagline: String?,
     val rating: Double?,
+    val imdbId: String? = null,
 )
 
 data class Genre(val id: Int, val name: String)

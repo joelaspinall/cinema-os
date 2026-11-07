@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -63,6 +64,9 @@ fun DetailScreen(vm: AppViewModel, film: Film, open: (Film) -> Unit, play: (Film
     val related by produceState(emptyList<Film>(), film) {
         value = id?.let { runCatching { c.tmdb.recommendations(it) }.getOrNull() }.orEmpty()
     }
+    val scores by produceState<com.joelaspinall.cinemaos.data.Omdb.Scores?>(null, details?.imdbId) {
+        value = details?.imdbId?.let { runCatching { c.omdb.scores(it) }.getOrNull() }
+    }
     val plexCopy = remember(film) { c.plex.find(film) }
     val context = LocalContext.current
     val tv = remember { TvDisplay.capabilities(context) }
@@ -77,9 +81,12 @@ fun DetailScreen(vm: AppViewModel, film: Film, open: (Film) -> Unit, play: (Film
     val f = details?.film?.copy(plexKey = film.plexKey ?: plexCopy?.plexKey) ?: film
     val first = remember { FocusRequester() }
     val apple = serviceById("apple")
-    val logo by produceState<String?>(null, id) {
-        value = id?.let { if (c.tmdb.isConfigured) runCatching { c.tmdb.logo(it) }.getOrNull() else null }
+    // Title artwork: instant when already known; empty (not plain text) for the moment it takes to look up.
+    val logoState by produceState<String?>(id?.let { c.tmdb.knownLogo(it) } ?: if (id == null || !c.tmdb.isConfigured) "" else null, id) {
+        if (value != null || id == null) return@produceState
+        value = runCatching { c.tmdb.logo(id) }.getOrNull() ?: ""
     }
+    val logo = logoState?.takeIf { it.isNotEmpty() }
 
     Box(Modifier.fillMaxSize()) {
         Backdrop(if (f.backdrop != null) f else film, dim = 0.15f)
@@ -94,15 +101,19 @@ fun DetailScreen(vm: AppViewModel, film: Film, open: (Film) -> Unit, play: (Film
                                 contentScale = ContentScale.Fit, alignment = Alignment.BottomStart,
                                 modifier = Modifier.heightIn(max = 140.dp).widthIn(max = 520.dp),
                             )
-                        } else {
+                        } else if (logoState != null) {
                             Text(f.title, style = Type.display, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        } else {
+                            Box(Modifier.height(120.dp))
                         }
                         Gap(14.dp)
                         val meta = listOfNotNull(
                             f.year?.toString(),
                             details?.runtime?.let { "${it / 60}h ${it % 60}m" },
                             details?.genres?.take(3)?.joinToString(", ")?.takeIf { it.isNotBlank() },
-                            details?.rating?.takeIf { it > 0 }?.let { "TMDB %.1f".format(it) },
+                            scores?.imdb?.let { "IMDb $it" },
+                            scores?.rottenTomatoes?.let { "Rotten Tomatoes $it" },
+                            details?.rating?.takeIf { it > 0 && scores?.imdb == null }?.let { "TMDB %.1f".format(it) },
                         ).joinToString("  ·  ")
                         Text(meta, style = Type.body.copy(color = Dim))
                         if (marks.seen(f)) {

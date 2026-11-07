@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -30,7 +31,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
+import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
+import coil.imageLoader
+import coil.request.ImageRequest
 import com.joelaspinall.cinemaos.data.Art
 import com.joelaspinall.cinemaos.data.Film
 import com.joelaspinall.cinemaos.data.FilmDetails
@@ -57,6 +61,19 @@ fun Immersive(
     var focused by remember { mutableStateOf<Film?>(null) }
     var focusedRow by remember { mutableStateOf<String?>(null) }
     val film = focused ?: featured
+    val context = LocalContext.current
+
+    // Preload title artwork for the first cards of every row.
+    LaunchedEffect(rows.map { it.first to it.second.size }) {
+        if (vm.c.tmdb.isConfigured) {
+            val ids = rows.flatMap { (_, films) -> films.take(12).mapNotNull { it.tmdbId } }
+            vm.c.tmdb.prefetchLogos(ids)
+            // Download the artwork images too, so they appear instantly.
+            ids.mapNotNull { vm.c.tmdb.knownLogo(it)?.takeIf { u -> u.isNotEmpty() } }.forEach { url ->
+                context.imageLoader.enqueue(ImageRequest.Builder(context).data(Art.logo(url)).build())
+            }
+        }
+    }
 
     Box(Modifier.fillMaxSize()) {
         Backdrop(film)
@@ -102,31 +119,43 @@ fun FilmPanel(vm: AppViewModel, film: Film, kicker: String) {
             delay(250)
             value = runCatching { vm.c.tmdb.details(id) }.getOrNull()
         }
-        val logo by produceState<String?>(null, f.tmdbId) {
+        // Title artwork: shown at once if it was preloaded; otherwise the title area stays empty
+        // for a moment rather than flashing plain text and then swapping to the artwork.
+        val known = remember(f.tmdbId) { f.tmdbId?.let { vm.c.tmdb.knownLogo(it) } }
+        val logoState by produceState<String?>(initialValue = known ?: if (f.tmdbId == null || !vm.c.tmdb.isConfigured) "" else null, f.tmdbId) {
+            if (value != null) return@produceState
             val id = f.tmdbId ?: return@produceState
-            delay(250)
-            value = if (vm.c.tmdb.isConfigured) runCatching { vm.c.tmdb.logo(id) }.getOrNull() else null
+            delay(120)
+            value = runCatching { vm.c.tmdb.logo(id) }.getOrNull() ?: ""
+        }
+        val scores by produceState<com.joelaspinall.cinemaos.data.Omdb.Scores?>(null, details?.imdbId) {
+            value = details?.imdbId?.let { runCatching { vm.c.omdb.scores(it) }.getOrNull() }
         }
         val marks = LocalMarks.current
         Column(Modifier.width(760.dp)) {
             Text(kicker.uppercase(), style = Type.kicker)
             Gap(8.dp)
-            if (logo != null) {
-                AsyncImage(
-                    model = Art.logo(logo),
-                    contentDescription = f.title,
-                    contentScale = ContentScale.Fit,
-                    alignment = Alignment.BottomStart,
-                    modifier = Modifier.heightIn(max = 88.dp).widthIn(max = 400.dp),
-                )
-            } else {
-                Text(f.title, style = Type.hero, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Box(Modifier.height(88.dp), contentAlignment = Alignment.BottomStart) {
+                val logo = logoState
+                when {
+                    logo == null -> {} // still looking: keep the space, show nothing
+                    logo.isNotEmpty() -> AsyncImage(
+                        model = Art.logo(logo),
+                        contentDescription = f.title,
+                        contentScale = ContentScale.Fit,
+                        alignment = Alignment.BottomStart,
+                        modifier = Modifier.heightIn(max = 88.dp).widthIn(max = 400.dp),
+                    )
+                    else -> Text(f.title, style = Type.hero, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
             }
             Gap(10.dp)
             val meta = listOfNotNull(
                 f.year?.toString(),
                 details?.runtime?.let { "${it / 60}h ${it % 60}m" },
                 details?.genres?.take(2)?.joinToString(" · ")?.takeIf { it.isNotBlank() },
+                scores?.imdb?.let { "IMDb $it" },
+                scores?.rottenTomatoes?.let { "RT $it" },
                 marks.rating(f)?.let { "Your rating ${stars(it)}" },
             ).joinToString("   ")
             if (meta.isNotBlank()) Text(meta, style = Type.small.copy(color = Fg.copy(alpha = 0.85f)))

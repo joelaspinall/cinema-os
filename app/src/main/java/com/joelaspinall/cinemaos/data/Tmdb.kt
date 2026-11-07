@@ -1,5 +1,6 @@
 package com.joelaspinall.cinemaos.data
 
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonElement
@@ -81,9 +82,24 @@ class Tmdb(private val store: Store) {
             genres = o["genres"].arr().mapNotNull { it.obj().str("name") },
             tagline = o.str("tagline"),
             rating = o.dbl("vote_average"),
+            imdbId = o.str("imdb_id"),
         )
         detailsCache[id] = d
         return d
+    }
+
+    /**
+     * What's already known about a film's title artwork, without waiting:
+     * a URL, "" when TMDB has none, or null when it hasn't been looked up yet.
+     */
+    fun knownLogo(id: Int): String? = logoCache[id]
+
+    /** Looks up title artwork for many films in the background, so it's ready before Joel reaches them. */
+    suspend fun prefetchLogos(ids: List<Int>) = kotlinx.coroutines.coroutineScope {
+        val gate = kotlinx.coroutines.sync.Semaphore(4)
+        ids.distinct().filter { it !in logoCache }.forEach { id ->
+            launch { gate.acquire(); try { logo(id) } finally { gate.release() } }
+        }
     }
 
     /** The film's title artwork (transparent logo), English first; null when TMDB has none. */
