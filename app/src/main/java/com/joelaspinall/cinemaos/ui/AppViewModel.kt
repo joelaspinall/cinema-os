@@ -176,9 +176,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val p = c.store.data.value.pending ?: return
         if (rate != null || finish != null) return
         val mins = (System.currentTimeMillis() - p.startedAt) / 60_000
-        when {
-            mins < 15 || mins > 18 * 60 -> c.store.updateData { it.copy(pending = null) }
-            else -> finish = FinishPrompt(p, p.runtimeMinutes?.let { mins >= it * 0.75 } ?: (mins >= 75))
+        when (val d = com.joelaspinall.cinemaos.data.Rules.finish(mins, p.runtimeMinutes)) {
+            com.joelaspinall.cinemaos.data.Rules.Finish.Ignore -> c.store.updateData { it.copy(pending = null) }
+            is com.joelaspinall.cinemaos.data.Rules.Finish.Ask -> finish = FinishPrompt(p, d.likely)
         }
     }
 

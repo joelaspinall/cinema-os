@@ -1,6 +1,5 @@
 package com.joelaspinall.cinemaos.data
 
-import android.net.Uri
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonElement
@@ -12,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
  * full service catalogues and recommendations. Free API key from themoviedb.org.
  */
 class Tmdb(private val store: Store) {
-    private val base = "https://api.themoviedb.org/3"
+    private val api = TmdbApi.create({ store.settings.value.tmdbToken }, runCatching { store.db.dao() }.getOrNull())
     private val img = "https://image.tmdb.org/t/p"
     private val region = "GB"
 
@@ -26,18 +25,10 @@ class Tmdb(private val store: Store) {
 
     data class ProviderInfo(val flatrate: List<String>, val rent: List<String>, val buy: List<String>)
 
-    private suspend fun get(path: String, params: Map<String, String> = emptyMap()): JsonElement {
-        val token = store.settings.value.tmdbToken.trim()
-        require(token.isNotBlank()) { "Add your TMDB key in Settings first." }
-        val b = Uri.parse(base + path).buildUpon()
-        params.forEach { (k, v) -> b.appendQueryParameter(k, v) }
-        // Accept either the short "API key" or the long "Read Access Token".
-        val headers = if (token.length > 40) {
-            mapOf("Authorization" to "Bearer $token")
-        } else {
-            b.appendQueryParameter("api_key", token); emptyMap()
-        }
-        return Http.getJson(b.build().toString(), headers)
+    /** Runs a TMDB call and parses its JSON. */
+    private suspend fun call(block: suspend TmdbApi.() -> String): JsonElement {
+        require(isConfigured) { "Add your TMDB key in Settings first." }
+        return JSON.parseToJsonElement(api.block())
     }
 
     fun poster(path: String?, size: String = "w342") = path?.let { "$img/$size$it" }
@@ -58,23 +49,20 @@ class Tmdb(private val store: Store) {
 
     private fun films(e: JsonElement) = e.obj()?.get("results").arr().mapNotNull { toFilm(it.obj()) }
 
-    suspend fun test(): Boolean = runCatching { get("/configuration"); true }.getOrDefault(false)
+    suspend fun test(): Boolean = runCatching { call { configuration() }; true }.getOrDefault(false)
 
     suspend fun search(query: String): List<Film> =
-        films(get("/search/movie", mapOf("query" to query, "region" to region, "include_adult" to "false")))
+        films(call { search("movie", query, mapOf("region" to region, "include_adult" to "false")) })
 
-    suspend fun popular(): List<Film> = films(get("/movie/popular", mapOf("region" to region)))
+    suspend fun popular(): List<Film> = films(call { popular("movie", region) })
 
     /** Finds the TMDB id for a Letterboxd title + year (cached in the store). */
     suspend fun resolve(title: String, year: Int?): Int? {
         val key = filmKey(title, year)
         store.data.value.resolved[key]?.let { return it }
-        val params = buildMap {
-            put("query", title)
-            if (year != null) put("primary_release_year", year.toString())
-        }
-        val hit = runCatching { films(get("/search/movie", params)).firstOrNull() }.getOrNull()
-            ?: if (year != null) runCatching { films(get("/search/movie", mapOf("query" to title))).firstOrNull() }.getOrNull() else null
+        val extra = if (year != null) mapOf("primary_release_year" to year.toString()) else emptyMap()
+        val hit = runCatching { films(call { search("movie", title, extra) }).firstOrNull() }.getOrNull()
+            ?: if (year != null) runCatching { films(call { search("movie", title) }).firstOrNull() }.getOrNull() else null
         val id = hit?.tmdbId ?: return null
         store.updateData { it.copy(resolved = it.resolved + (key to id)) }
         return id
@@ -84,7 +72,7 @@ class Tmdb(private val store: Store) {
 
     suspend fun details(id: Int): FilmDetails? {
         detailsCache[id]?.let { return it }
-        val o = runCatching { get("/movie/$id").obj() }.getOrNull() ?: return null
+        val o = runCatching { call { details("movie", id) }.obj() }.getOrNull() ?: return null
         val film = toFilm(o) ?: return null
         val d = FilmDetails(
             film = film,
@@ -98,15 +86,12 @@ class Tmdb(private val store: Store) {
     }
 
     suspend fun recommendations(id: Int): List<Film> =
-        runCatching { films(get("/movie/$id/recommendations")) }.getOrDefault(emptyList())
-
-    suspend fun similar(id: Int): List<Film> =
-        runCatching { films(get("/movie/$id/similar")) }.getOrDefault(emptyList())
+        runCatching { films(call { recommendations("movie", id) }) }.getOrDefault(emptyList())
 
     /** What's available on which UK service for one film. */
     suspend fun providers(id: Int): ProviderInfo {
         providerCache[id]?.let { return it }
-        val gb = runCatching { get("/movie/$id/watch/providers").obj()?.get("results").obj()?.get(region).obj() }.getOrNull()
+        val gb = runCatching { call { providers("movie", id) }.obj()?.get("results").obj()?.get(region).obj() }.getOrNull()
         fun names(k: String) = gb?.get(k).arr().mapNotNull { it.obj().str("provider_name") }
         val info = ProviderInfo(names("flatrate") + names("ads") + names("free"), names("rent"), names("buy"))
         providerCache[id] = info
@@ -123,7 +108,7 @@ class Tmdb(private val store: Store) {
     /** TMDB's numeric provider ids for each of Joel's services in the UK. */
     private suspend fun providerIds(): Map<String, List<Int>> = providerLock.withLock {
         serviceProviderIds?.let { return it }
-        val all = get("/watch/providers/movie", mapOf("watch_region" to region)).obj()?.get("results").arr()
+        val all = call { providerList("movie", region) }.obj()?.get("results").arr()
             .mapNotNull { e -> e.obj()?.let { (it.int("provider_id") ?: return@let null) to (it.str("provider_name") ?: "") } }
         val map = SERVICES.associate { s ->
             s.id to all.filter { (_, name) -> s.tmdbPrefixes.any { name.lowercase().startsWith(it) } }.map { it.first }
@@ -146,12 +131,12 @@ class Tmdb(private val store: Store) {
             if (sort.startsWith("vote_average")) put("vote_count.gte", "300")
             if (genreId != null) put("with_genres", genreId.toString())
         }
-        return films(get("/discover/movie", params))
+        return films(call { discover("movie", params) })
     }
 
     suspend fun genres(): List<Genre> {
         genresCache?.let { return it }
-        val g = get("/genre/movie/list").obj()?.get("genres").arr().mapNotNull { e ->
+        val g = call { genres("movie") }.obj()?.get("genres").arr().mapNotNull { e ->
             val o = e.obj(); val id = o.int("id"); val name = o.str("name")
             if (id != null && name != null) Genre(id, name) else null
         }

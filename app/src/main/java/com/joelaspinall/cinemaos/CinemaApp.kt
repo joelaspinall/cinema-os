@@ -9,11 +9,15 @@ import com.joelaspinall.cinemaos.data.Recommender
 import com.joelaspinall.cinemaos.data.Store
 import com.joelaspinall.cinemaos.data.Tmdb
 import com.joelaspinall.cinemaos.data.Updater
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.disk.DiskCache
+import com.joelaspinall.cinemaos.data.Http
 import fi.iki.elonen.NanoHTTPD
 import kotlinx.coroutines.flow.MutableSharedFlow
 
 /** Holds the app's single copy of each service. */
-class CinemaApp : Application() {
+class CinemaApp : Application(), ImageLoaderFactory {
     lateinit var store: Store; private set
     lateinit var tmdb: Tmdb; private set
     lateinit var plex: Plex; private set
@@ -38,4 +42,11 @@ class CinemaApp : Application() {
         companion = CompanionServer(store, letterboxd) { events.tryEmit(it) }
         runCatching { companion.start(NanoHTTPD.SOCKET_READ_TIMEOUT, true) }
     }
+
+    /** Poster loader: a disk cache for offline browsing, and Plex images signed by header. */
+    override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
+        .okHttpClient { Http.client.newBuilder().addInterceptor(plex.PlexAuth()).build() }
+        .diskCache { DiskCache.Builder().directory(cacheDir.resolve("posters")).maxSizeBytes(250L * 1024 * 1024).build() }
+        .crossfade(true)
+        .build()
 }

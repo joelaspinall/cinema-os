@@ -90,58 +90,66 @@ class Letterboxd(private val store: Store) {
     fun importCsv(name: String, text: String): ImportResult = importCsvFiles(mapOf(name to text))
 
     private fun importCsvFiles(files: Map<String, String>): ImportResult {
-        fun rows(name: String) = files[name]?.let { parseCsv(it) }.orEmpty()
-
-        val history = LinkedHashMap<String, HistoryItem>()
-        fun add(r: Map<String, String>, withRating: Boolean) {
-            val title = r["Name"]?.takeIf { it.isNotBlank() } ?: return
-            val year = r["Year"]?.toIntOrNull()
-            val key = filmKey(title, year)
-            val old = history[key]
-            val rating = if (withRating) r["Rating"]?.toDoubleOrNull() else null
-            val date = r["Watched Date"]?.takeIf { it.isNotBlank() } ?: r["Date"]
-            history[key] = HistoryItem(title, year, rating ?: old?.rating, old?.tmdbId, old?.date ?: date)
-        }
-        rows("watched.csv").forEach { add(it, false) }
-        rows("diary.csv").forEach { add(it, true) }
-        rows("ratings.csv").forEach { add(it, true) }
-
-        val watchlist = rows("watchlist.csv").mapNotNull { r ->
-            val title = r["Name"]?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            HistoryItem(title, r["Year"]?.toIntOrNull(), date = r["Date"])
-        }
-
+        val parsed = parseExport(files)
         store.updateData { d ->
             d.copy(
-                history = if (history.isNotEmpty()) history.values.toList() else d.history,
-                watchlist = if (files.containsKey("watchlist.csv")) watchlist else d.watchlist,
+                history = if (parsed.history.isNotEmpty()) parsed.history else d.history,
+                watchlist = if (parsed.hasWatchlist) parsed.watchlist else d.watchlist,
                 historyImportedAt = java.time.LocalDate.now().toString(),
             )
         }
-        return ImportResult(history.size, history.values.count { it.rating != null }, watchlist.size)
+        return ImportResult(parsed.history.size, parsed.history.count { it.rating != null }, parsed.watchlist.size)
     }
 
     /** Builds a file for letterboxd.com/import from entries not yet sent. */
-    fun exportCsv(entries: List<DiaryEntry>): String = buildString {
-        append("tmdbID,Title,Year,WatchedDate,Rating,Rewatch,Review\n")
-        for (e in entries) {
-            append(listOf(
-                e.tmdbId?.toString() ?: "",
-                e.title,
-                e.year?.toString() ?: "",
-                e.watchedDate,
-                e.rating?.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() } ?: "",
-                if (e.rewatch) "true" else "false",
-                e.review,
-            ).joinToString(",") { csvField(it) })
-            append('\n')
-        }
-    }
-
-    private fun csvField(v: String) =
-        if (v.any { it == ',' || it == '"' || it == '\n' }) "\"" + v.replace("\"", "\"\"") + "\"" else v
+    fun exportCsv(entries: List<DiaryEntry>): String = buildImportCsv(entries)
 
     companion object {
+        data class ParsedExport(val history: List<HistoryItem>, val watchlist: List<HistoryItem>, val hasWatchlist: Boolean)
+
+        /** Merges watched.csv, diary.csv and ratings.csv into one history (latest rating wins) + the watchlist. */
+        fun parseExport(files: Map<String, String>): ParsedExport {
+            fun rows(name: String) = files[name]?.let { parseCsv(it) }.orEmpty()
+            val history = LinkedHashMap<String, HistoryItem>()
+            fun add(r: Map<String, String>, withRating: Boolean) {
+                val title = r["Name"]?.takeIf { it.isNotBlank() } ?: return
+                val year = r["Year"]?.toIntOrNull()
+                val key = filmKey(title, year)
+                val old = history[key]
+                val rating = if (withRating) r["Rating"]?.toDoubleOrNull() else null
+                val date = r["Watched Date"]?.takeIf { it.isNotBlank() } ?: r["Date"]
+                history[key] = HistoryItem(title, year, rating ?: old?.rating, old?.tmdbId, old?.date ?: date)
+            }
+            rows("watched.csv").forEach { add(it, false) }
+            rows("diary.csv").forEach { add(it, true) }
+            rows("ratings.csv").forEach { add(it, true) }
+            val watchlist = rows("watchlist.csv").mapNotNull { r ->
+                val title = r["Name"]?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                HistoryItem(title, r["Year"]?.toIntOrNull(), date = r["Date"])
+            }
+            return ParsedExport(history.values.toList(), watchlist, files.containsKey("watchlist.csv"))
+        }
+
+        /** Letterboxd's import format: tmdbID, Title, Year, WatchedDate (YYYY-MM-DD), Rating (0.5–5), Rewatch, Review. */
+        fun buildImportCsv(entries: List<DiaryEntry>): String = buildString {
+            append("tmdbID,Title,Year,WatchedDate,Rating,Rewatch,Review\n")
+            for (e in entries) {
+                append(listOf(
+                    e.tmdbId?.toString() ?: "",
+                    e.title,
+                    e.year?.toString() ?: "",
+                    e.watchedDate,
+                    e.rating?.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() } ?: "",
+                    if (e.rewatch) "true" else "false",
+                    e.review,
+                ).joinToString(",") { csvField(it) })
+                append('\n')
+            }
+        }
+
+        private fun csvField(v: String) =
+            if (v.any { it == ',' || it == '"' || it == '\n' }) "\"" + v.replace("\"", "\"\"") + "\"" else v
+
         fun filmUrl(film: Film) =
             if (film.tmdbId != null) "https://letterboxd.com/tmdb/${film.tmdbId}/"
             else "https://letterboxd.com/search/" + android.net.Uri.encode(film.title) + "/"

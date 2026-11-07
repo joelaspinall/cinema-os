@@ -4,6 +4,7 @@ import android.net.Uri
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.JsonObject
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
  * Plex: sign in with a 4-character code at plex.tv/link, then read the movie
@@ -101,7 +102,7 @@ class Plex(private val store: Store) {
             .appendQueryParameter("width", "$w").appendQueryParameter("height", "$h")
             .appendQueryParameter("minSize", "1").appendQueryParameter("upscale", "1")
             .appendQueryParameter("url", thumb)
-            .appendQueryParameter("X-Plex-Token", s.plexServerToken)
+        // No token in the address: [PlexAuth] adds it as a header when the image loads.
         return u.build().toString()
     }
 
@@ -157,7 +158,21 @@ class Plex(private val store: Store) {
 
     fun streamUrl(film: Film): String? {
         val part = synchronized(partKeys) { partKeys[film.plexKey] } ?: return null
-        return "${s.plexServerUri}$part?X-Plex-Token=${s.plexServerToken}"
+        return "${s.plexServerUri}$part"
+    }
+
+    /** Headers the video player sends, so the token never appears in a URL or a log. */
+    fun playbackHeaders(): Map<String, String> = headers(s.plexServerToken)
+
+    /** Adds the Plex token as a header to image requests for Joel's server only. */
+    inner class PlexAuth : okhttp3.Interceptor {
+        override fun intercept(chain: okhttp3.Interceptor.Chain): okhttp3.Response {
+            val req = chain.request()
+            val server = s.plexServerUri.toHttpUrlOrNull()
+            return if (server != null && req.url.host == server.host && req.url.port == server.port && s.plexServerToken.isNotBlank()) {
+                chain.proceed(req.newBuilder().header("X-Plex-Token", s.plexServerToken).build())
+            } else chain.proceed(req)
+        }
     }
 
     /** Quick resolution from the library listing ("4K", "1080p"…), for poster badges. */

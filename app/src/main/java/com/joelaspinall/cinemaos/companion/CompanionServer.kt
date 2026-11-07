@@ -107,25 +107,7 @@ class CompanionServer(
         return page(msg)
     }
 
-    /** Accepts "Title<TAB>Year", "Title,Year", "Title (Year)" or just "Title", one per line. */
-    private fun parseAppleList(text: String): List<com.joelaspinall.cinemaos.data.HistoryItem> =
-        text.lines().map { it.trim() }.filter { it.isNotBlank() && !it.equals("name\tyear", true) }.mapNotNull { line ->
-            val tab = line.split('\t')
-            val (title, year) = when {
-                // Some Apple titles carry the year in the name, e.g. "Drive (2011)".
-                tab.size >= 2 -> tab[0].trim().replace(Regex("""\s*\(\d{4}\)$"""), "") to tab[1].trim().take(4).toIntOrNull()
-                Regex("""^(.*)\s*\((\d{4})\)\s*$""").matches(line) -> {
-                    val m = Regex("""^(.*)\s*\((\d{4})\)\s*$""").find(line)!!
-                    m.groupValues[1].trim() to m.groupValues[2].toInt()
-                }
-                Regex("""^(.*),\s*(\d{4})$""").matches(line) -> {
-                    val m = Regex("""^(.*),\s*(\d{4})$""").find(line)!!
-                    m.groupValues[1].trim().trim('"') to m.groupValues[2].toInt()
-                }
-                else -> line to null
-            }
-            title.takeIf { it.isNotBlank() }?.let { com.joelaspinall.cinemaos.data.HistoryItem(it, year) }
-        }.distinctBy { it.title.lowercase() + it.year }
+    private fun parseAppleList(text: String) = com.joelaspinall.cinemaos.data.Rules.parseAppleList(text)
 
     private fun exportFile(): Response {
         val entries = store.unexported()

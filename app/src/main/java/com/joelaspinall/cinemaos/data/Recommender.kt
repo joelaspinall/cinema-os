@@ -65,16 +65,10 @@ class Recommender(
         }.awaitAll()
 
         // Score each candidate: higher for more seeds, better ratings and higher rank.
-        val score = HashMap<Int, Double>()
         val films = HashMap<Int, Film>()
-        for ((seed, recs) in recsBySeed) {
-            recs.take(15).forEachIndexed { rank, f ->
-                val id = f.tmdbId ?: return@forEachIndexed
-                films[id] = f
-                score[id] = (score[id] ?: 0.0) + (seed.rating - 2.5) * (1.0 / (1 + rank * 0.25))
-            }
-        }
-        val ranked = score.entries.sortedByDescending { it.value }.take(80).mapNotNull { films[it.key] }
+        recsBySeed.forEach { (_, recs) -> recs.forEach { f -> f.tmdbId?.let { films.putIfAbsent(it, f) } } }
+        val ranked = Rules.rankRecommendations(recsBySeed.map { (seed, recs) -> seed.rating to recs.mapNotNull { it.tmdbId } })
+            .take(80).mapNotNull { films[it] }
 
         val availability = ranked.map { f -> async { f to available(f) } }.awaitAll().toMap()
         val forYou = ranked.filter { availability[it] == true }.take(30)

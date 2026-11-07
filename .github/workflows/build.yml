@@ -23,6 +23,9 @@ jobs:
         with:
           gradle-version: "8.10.2"
 
+      - name: Run automated tests
+        run: gradle :app:testReleaseUnitTest --stacktrace
+
       - name: Build the app
         run: gradle :app:assembleRelease -PversionCode=${{ github.run_number }} --stacktrace
 

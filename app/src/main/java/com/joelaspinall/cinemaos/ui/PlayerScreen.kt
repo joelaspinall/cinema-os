@@ -44,7 +44,12 @@ fun PlayerScreen(vm: AppViewModel, film: Film, onExit: () -> Unit) {
     }
 
     val player = remember {
-        ExoPlayer.Builder(context).build().apply {
+        // The Plex token goes in a request header, never in the video's address.
+        val http = androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(com.joelaspinall.cinemaos.data.Http.client)
+            .setDefaultRequestProperties(plex.playbackHeaders())
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(http))
+            .build().apply {
             setMediaItem(MediaItem.fromUri(url))
             val resume = plex.resumePosition(copy)
             if (resume > 60_000) seekTo(resume)
@@ -58,7 +63,7 @@ fun PlayerScreen(vm: AppViewModel, film: Film, onExit: () -> Unit) {
         finished = true
         val pos = player.currentPosition
         val dur = player.duration
-        val nearEnd = dur > 0 && pos >= dur * 0.9
+        val nearEnd = com.joelaspinall.cinemaos.data.Rules.plexFinished(pos, dur)
         scope.launch { plex.saveProgress(copy, if (nearEnd) 0 else pos, dur.coerceAtLeast(0)) }
         if (nearEnd) vm.plexFinished(copy, startedAt)
         onExit()
