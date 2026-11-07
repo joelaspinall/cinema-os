@@ -60,6 +60,22 @@ fun Glide(pivot: Float, content: @Composable () -> Unit) {
 }
 
 /**
+ * Column version that holds the focused card a fixed distance below the top, leaving room
+ * for its row title above and for the card to grow when selected.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun GlideBelow(top: androidx.compose.ui.unit.Dp, content: @Composable () -> Unit) {
+    val px = with(androidx.compose.ui.platform.LocalDensity.current) { top.toPx() }
+    val spec = remember(px) { object : BringIntoViewSpec {
+        @Suppress("OVERRIDE_DEPRECATION")
+        override val scrollAnimationSpec = tween<Float>(durationMillis = 420, easing = Ease)
+        override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = offset - px
+    } }
+    CompositionLocalProvider(LocalBringIntoViewSpec provides spec) { content() }
+}
+
+/**
  * Full-screen backdrop behind Home, Plex and film pages. Crossfades between films and
  * drifts very slowly, like the Apple TV app, then fades into the black page.
  */

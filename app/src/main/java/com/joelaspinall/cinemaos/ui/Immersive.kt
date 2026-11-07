@@ -89,7 +89,8 @@ fun Immersive(
                     }
                 }
             }
-            Glide(0f) {
+            // Row title (about 30dp) + room for the selected card to grow, above each focused card.
+            GlideBelow(56.dp) {
                 LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 80.dp)) {
                     if (top != null) item { top() }
                     items(rows, key = { it.first }) { (title, films) ->
