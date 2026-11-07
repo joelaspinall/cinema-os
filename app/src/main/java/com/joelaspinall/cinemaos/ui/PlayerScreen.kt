@@ -98,7 +98,7 @@ fun PlayerScreen(vm: AppViewModel, film: Film, onExit: () -> Unit) {
                 isFocusable = true
                 isFocusableInTouchMode = true
                 setShowSubtitleButton(true)
-                descendantFocusability = View.FOCUS_AFTER_DESCENDANTS
+                descendantFocusability = android.view.ViewGroup.FOCUS_AFTER_DESCENDANTS
                 requestFocus()
             }
         },
