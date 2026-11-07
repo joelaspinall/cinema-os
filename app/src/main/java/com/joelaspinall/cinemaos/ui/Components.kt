@@ -161,7 +161,7 @@ fun LandscapeCard(
         Text(
             listOfNotNull(film.year?.toString()).joinToString(),
             style = Type.small.copy(color = if (focused) White else Color.Transparent),
-            modifier = Modifier.padding(top = 10.dp, start = 2.dp),
+            modifier = Modifier.padding(top = 6.dp, start = 2.dp),
         )
     }
 }
@@ -174,16 +174,17 @@ fun FilmRow(
     badges: (Film) -> String? = { null },
     onFocus: ((Film) -> Unit)? = null,
     wide: Boolean = true,
+    cardWidth: Dp = 320.dp,
 ) {
     Column(Modifier.padding(bottom = 8.dp)) {
         Text(title, style = Type.h2, modifier = Modifier.padding(start = SafeX, bottom = 2.dp))
         Glide(PivotRow) {
             LazyRow(
-                contentPadding = PaddingValues(horizontal = SafeX, vertical = 22.dp),
-                horizontalArrangement = Arrangement.spacedBy(28.dp),
+                contentPadding = PaddingValues(start = SafeX, end = SafeX, top = 14.dp, bottom = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
             ) {
             items(films, key = { (it.tmdbId?.toString() ?: "") + (it.plexKey ?: "") + it.key }) { f ->
-                if (wide) LandscapeCard(f, onClick = { onOpen(f) }, badge = badges(f), onFocus = onFocus)
+                if (wide) LandscapeCard(f, onClick = { onOpen(f) }, width = cardWidth, badge = badges(f), onFocus = onFocus)
                 else PosterCard(f, onClick = { onOpen(f) }, badge = badges(f), onFocus = onFocus)
             }
             }

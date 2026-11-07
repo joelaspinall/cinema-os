@@ -37,7 +37,7 @@ import com.joelaspinall.cinemaos.data.FilmDetails
 import kotlinx.coroutines.delay
 
 /** Height of the film panel at the top of Home and Plex. */
-private val PanelHeight = 300.dp
+private val PanelHeight = 222.dp
 
 /**
  * Apple TV-style page: the focused film fills the screen behind, its title artwork and
@@ -60,7 +60,7 @@ fun Immersive(
 
     Box(Modifier.fillMaxSize()) {
         Backdrop(film)
-        Column(Modifier.fillMaxSize().padding(top = HERO_TOP)) {
+        Column(Modifier.fillMaxSize().padding(top = 80.dp)) {
             Box(Modifier.fillMaxWidth().height(PanelHeight).padding(start = SafeX, bottom = 8.dp), contentAlignment = Alignment.BottomStart) {
                 if (film != null) {
                     FilmPanel(vm, film, if (focused == null) kicker else focusedRow ?: kicker)
@@ -76,7 +76,7 @@ fun Immersive(
                 LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 80.dp)) {
                     if (top != null) item { top() }
                     items(rows, key = { it.first }) { (title, films) ->
-                        FilmRow(title, films, onOpen = open, onFocus = { focused = it; focusedRow = title })
+                        FilmRow(title, films, onOpen = open, onFocus = { focused = it; focusedRow = title }, cardWidth = 250.dp)
                     }
                 }
             }
@@ -110,19 +110,19 @@ fun FilmPanel(vm: AppViewModel, film: Film, kicker: String) {
         val marks = LocalMarks.current
         Column(Modifier.width(760.dp)) {
             Text(kicker.uppercase(), style = Type.kicker)
-            Gap(10.dp)
+            Gap(8.dp)
             if (logo != null) {
                 AsyncImage(
                     model = Art.logo(logo),
                     contentDescription = f.title,
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.BottomStart,
-                    modifier = Modifier.heightIn(max = 120.dp).widthIn(max = 460.dp),
+                    modifier = Modifier.heightIn(max = 88.dp).widthIn(max = 400.dp),
                 )
             } else {
-                Text(f.title, style = Type.display, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(f.title, style = Type.hero, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Gap(14.dp)
+            Gap(10.dp)
             val meta = listOfNotNull(
                 f.year?.toString(),
                 details?.runtime?.let { "${it / 60}h ${it % 60}m" },
@@ -134,8 +134,8 @@ fun FilmPanel(vm: AppViewModel, film: Film, kicker: String) {
             Text(
                 f.overview ?: details?.film?.overview ?: "",
                 style = Type.body.copy(color = Fg.copy(alpha = 0.85f)),
-                maxLines = 3, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.width(640.dp),
+                maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.width(600.dp),
             )
         }
     }
