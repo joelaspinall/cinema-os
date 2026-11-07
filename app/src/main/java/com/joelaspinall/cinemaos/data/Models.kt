@@ -109,6 +109,8 @@ data class Settings(
     val tmdbToken: String = "",
     /** Free key from omdbapi.com, for IMDb and Rotten Tomatoes scores. */
     val omdbKey: String = "",
+    /** The Apple TV library list bundled with the app has been added once. */
+    val appleSeeded: Boolean = false,
     val letterboxdUser: String = "joelaspinall",
     val plexClientId: String = "",
     val plexToken: String = "",

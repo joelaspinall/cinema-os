@@ -58,10 +58,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             c.events.debounce(800).collect { e -> if (e == "apple") importApple() else refresh() }
         }
+        seedAppleLibrary()
         if (c.store.data.value.appleImport.isNotEmpty()) importApple()
     }
 
     fun refresh() {
+        // Waiting Apple TV films get matched as soon as a TMDB key is there.
+        if (c.store.data.value.appleImport.isNotEmpty() && c.tmdb.isConfigured) importApple()
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch {
             loading = true
@@ -123,6 +126,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
         }.awaitAll()
         slots["diary"] = Row("Your recent diary", films)
+    }
+
+    /** Adds Joel's Apple TV purchases (read from his library screenshots) the first time the app runs. */
+    private fun seedAppleLibrary() {
+        if (c.store.settings.value.appleSeeded) return
+        val text = runCatching { getApplication<Application>().assets.open("apple_library.txt").bufferedReader().readText() }.getOrNull() ?: return
+        val items = com.joelaspinall.cinemaos.data.Rules.parseAppleList(text)
+        if (items.isNotEmpty()) c.store.updateData { it.copy(appleImport = (it.appleImport + items).distinctBy { i -> i.title.lowercase() + i.year }) }
+        c.store.updateSettings { it.copy(appleSeeded = true) }
     }
 
     /** Matches uploaded Apple TV purchases to TMDB films and adds them to the library. */
