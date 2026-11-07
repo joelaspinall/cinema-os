@@ -41,12 +41,15 @@ class Launcher(private val context: Context) {
     fun isInstalled(service: Service) = appFor(service) != null
 
     /** Looks up each service's own ID for this film on Wikidata. */
-    suspend fun serviceIds(tmdbId: Int): Map<String, String> {
-        idCache[tmdbId]?.let { return it }
+    suspend fun serviceIds(tmdbId: Int, tv: Boolean = false): Map<String, String> {
+        val cacheId = if (tv) -tmdbId else tmdbId
+        idCache[cacheId]?.let { return it }
         val props = SERVICES.mapNotNull { s -> s.wikidataProp?.let { s.id to it } }
         val vars = props.joinToString(" ") { "?${it.first}" }
         val optionals = props.joinToString(" ") { "OPTIONAL { ?item wdt:${it.second} ?${it.first} . }" }
-        val query = "SELECT $vars WHERE { ?item wdt:P4947 \"$tmdbId\" . $optionals } LIMIT 1"
+        // P4947 = TMDB film id, P4983 = TMDB series id.
+        val tmdbProp = if (tv) "P4983" else "P4947"
+        val query = "SELECT $vars WHERE { ?item wdt:$tmdbProp \"$tmdbId\" . $optionals } LIMIT 1"
         val url = "https://query.wikidata.org/sparql?format=json&query=" + Uri.encode(query)
         val result = runCatching {
             val row = Http.getJson(url, mapOf("User-Agent" to "CinemaOS/1.0 (personal Android TV app)"), quick = true)
@@ -55,7 +58,7 @@ class Launcher(private val context: Context) {
                 (row?.get(id) as? JsonObject).str("value")?.let { id to it }
             }.toMap()
         }.getOrDefault(emptyMap())
-        idCache[tmdbId] = result
+        idCache[cacheId] = result
         return result
     }
 
@@ -66,7 +69,9 @@ class Launcher(private val context: Context) {
     suspend fun open(service: Service, film: Film): String? {
         val app = appFor(service)
             ?: return "${service.label} isn't installed on this TV."
-        val serviceId = film.tmdbId?.let { serviceIds(it)[service.id] }
+        // Series pages: only Netflix shares one link format for films and series.
+        val serviceId = if (film.tv && service.id != "netflix") null
+        else film.tmdbId?.let { serviceIds(it, film.tv)[service.id] }
         if (serviceId != null) {
             val deep = Intent(Intent.ACTION_VIEW, Uri.parse(service.urlFor(serviceId)))
                 .setPackage(app.packageName)

@@ -53,6 +53,10 @@ val PLANS: Map<String, List<Plan>> = mapOf(
     "apple" to listOf(
         Plan("standard", "Apple TV", Quality("4K", DV_4K, ATMOS)),
     ),
+    "iplayer" to listOf(
+        // Most of iPlayer is HD; some big dramas and sport are in 4K HLG.
+        Plan("free", "Free with TV licence", Quality("4K", listOf("HLG"), listOf("Stereo"))),
+    ),
 )
 
 fun planFor(serviceId: String, planId: String?): Plan? {

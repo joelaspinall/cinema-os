@@ -26,6 +26,12 @@ class Store(context: Context) {
         if (_settings.value.plexClientId.isBlank()) {
             updateSettings { it.copy(plexClientId = "cinema-os-" + UUID.randomUUID()) }
         }
+        // Switch on any service added in an update (e.g. BBC iPlayer), once.
+        val all = SERVICES.map { it.id }
+        val new = all - _settings.value.knownServices.toSet() - _settings.value.services.toSet()
+        if (new.isNotEmpty() || _settings.value.knownServices.size != all.size) {
+            updateSettings { it.copy(services = (it.services + new).distinct(), knownServices = all) }
+        }
     }
 
     @Synchronized

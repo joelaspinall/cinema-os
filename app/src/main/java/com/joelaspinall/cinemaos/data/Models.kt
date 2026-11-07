@@ -12,8 +12,12 @@ data class Film(
     val backdrop: String? = null,
     val overview: String? = null,
     val plexKey: String? = null,
+    /** A TV series (or an episode from Plex) rather than a film. */
+    val tv: Boolean = false,
+    /** Extra line for Plex episodes, e.g. "S2 · E4 · The Rains of Castamere". */
+    val subtitle: String? = null,
 ) {
-    val key: String get() = filmKey(title, year)
+    val key: String get() = (if (tv) "tv:" else "") + filmKey(title, year)
     val label: String get() = if (year != null) "$title ($year)" else title
 }
 
@@ -52,6 +56,9 @@ val SERVICES = listOf(
     Service(
         "apple", "Apple TV", listOf("apple tv"), listOf("apple tv"), "P9586",
     ) { "https://tv.apple.com/gb/movie/$it" },
+    Service(
+        "iplayer", "BBC iPlayer", listOf("bbc iplayer"), listOf("bbc iplayer", "iplayer"), null,
+    ) { "https://www.bbc.co.uk/iplayer/episode/$it" },
 )
 
 fun serviceById(id: String) = SERVICES.firstOrNull { it.id == id }
@@ -113,7 +120,9 @@ data class Settings(
     val plexServerName: String = "",
     val plexServerUri: String = "",
     val plexServerToken: String = "",
-    val services: List<String> = listOf("netflix", "prime", "disney", "hbo", "apple"),
+    val services: List<String> = listOf("netflix", "prime", "disney", "hbo", "apple", "iplayer"),
+    /** Services the app has already offered, so new ones (like iPlayer) get switched on once. */
+    val knownServices: List<String> = emptyList(),
     /** Which plan Joel has on each service (service id -> plan id), for quality info. */
     val plans: Map<String, String> = mapOf(
         "netflix" to "ads", "prime" to "ads", "disney" to "premium", "hbo" to "premium",
@@ -135,6 +144,8 @@ data class FilmDetails(
     val genres: List<String>,
     val tagline: String?,
     val rating: Double?,
+    val seasons: Int? = null,
+    val status: String? = null,
 )
 
 data class Genre(val id: Int, val name: String)
