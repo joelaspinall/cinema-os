@@ -17,6 +17,7 @@ class Tmdb(private val store: Store) {
 
     private val providerCache = ConcurrentHashMap<Int, ProviderInfo>()
     private val detailsCache = ConcurrentHashMap<Int, FilmDetails>()
+    private val logoCache = ConcurrentHashMap<Int, String>()
     private var serviceProviderIds: Map<String, List<Int>>? = null
     private var genresCache: List<Genre>? = null
     private val providerLock = Mutex()
@@ -83,6 +84,17 @@ class Tmdb(private val store: Store) {
         )
         detailsCache[id] = d
         return d
+    }
+
+    /** The film's title artwork (transparent logo), English first; null when TMDB has none. */
+    suspend fun logo(id: Int): String? {
+        logoCache[id]?.let { return it.ifBlank { null } }
+        val logos = runCatching { call { images("movie", id) }.obj()?.get("logos").arr().mapNotNull { it.obj() } }.getOrNull() ?: return null
+        val best = logos.sortedWith(compareByDescending<JsonObject> { it.str("iso_639_1") == "en" }.thenByDescending { it.dbl("vote_average") ?: 0.0 })
+            .firstOrNull { it.str("file_path")?.endsWith(".svg") == false }
+        val url = best?.str("file_path")?.let { "$img/w500$it" }
+        logoCache[id] = url ?: ""
+        return url
     }
 
     suspend fun recommendations(id: Int): List<Film> =

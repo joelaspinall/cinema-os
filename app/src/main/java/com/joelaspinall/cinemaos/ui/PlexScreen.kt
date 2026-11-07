@@ -61,50 +61,30 @@ fun PlexTab(vm: AppViewModel, open: (Film) -> Unit, goSettings: () -> Unit) {
     val recent = vm.plexRecent
     val uhd = remember(all) { all.filter { plex.resolution(it) == "4K" }.shuffled().take(30) }
     val unseen = remember(all, marks) { all.filter { !marks.seen(it) }.shuffled().take(30) }
-    val featured = (deck + recent).firstOrNull { it.backdrop != null }
+    val rows = listOf(
+        "Continue watching" to deck,
+        "Recently added" to recent,
+        "In 4K" to uhd,
+        "Not seen yet" to unseen,
+    ).filter { it.second.isNotEmpty() }
 
-    Box(Modifier.fillMaxSize()) {
-        Backdrop(focused ?: featured)
-        LazyColumn(Modifier.padding(top = HERO_TOP), contentPadding = PaddingValues(bottom = 60.dp)) {
-            item {
-                if (featured != null) {
-                    Hero(
-                        featured,
-                        kicker = if (deck.isNotEmpty()) "Continue watching on Plex" else "New on Plex",
-                        onDetails = { open(featured) },
-                        onFocus = { focused = featured },
-                    ) {
-                        Action("All ${all.size} films", { mode = "all" })
-                        Action("Refresh", { vm.refresh() })
-                    }
-                } else {
-                    Column(Modifier.height(240.dp).padding(start = 64.dp), verticalArrangement = Arrangement.Bottom) {
-                        Text(vm.c.store.settings.value.plexServerName.ifBlank { "Plex" }, style = Type.hero)
-                        Text(
-                            when {
-                                vm.plexStatus != null -> vm.plexStatus!!
-                                vm.loading -> "Loading your library…"
-                                else -> "${all.size} films"
-                            },
-                            style = Type.body.copy(color = Dim),
-                        )
-                        Gap(18.dp)
-                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            Action("Refresh", { vm.refresh() }, primary = true)
-                            if (all.isNotEmpty()) Action("All ${all.size} films", { mode = "all" })
-                        }
-                    }
-                }
+    Immersive(
+        vm = vm,
+        rows = rows,
+        open = open,
+        kicker = if (deck.isNotEmpty()) "Continue watching on Plex" else "New on Plex",
+        emptyTitle = vm.c.store.settings.value.plexServerName.ifBlank { "Plex" },
+        emptyLine = when {
+            vm.plexStatus != null -> vm.plexStatus!!
+            vm.loading -> "Loading your library…"
+            else -> "${all.size} films"
+        },
+        top = {
+            Row(Modifier.padding(horizontal = SafeX, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (all.isNotEmpty()) Action("All ${all.size} films", { mode = "all" })
+                Action("Not seen", { mode = "unseen" })
+                Action("Refresh", { vm.refresh() })
             }
-            val rows = listOf(
-                "Continue watching" to deck,
-                "Recently added" to recent,
-                "In 4K" to uhd,
-                "Not seen yet" to unseen,
-            ).filter { it.second.isNotEmpty() }
-            items(rows, key = { it.first }) { (title, films) ->
-                FilmRow(title, films, onOpen = open, onFocus = { focused = it })
-            }
-        }
-    }
+        },
+    )
 }

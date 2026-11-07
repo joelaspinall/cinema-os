@@ -12,6 +12,7 @@ import com.joelaspinall.cinemaos.data.Updater
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
+import com.joelaspinall.cinemaos.data.Art
 import com.joelaspinall.cinemaos.data.Http
 import fi.iki.elonen.NanoHTTPD
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -32,6 +33,7 @@ class CinemaApp : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        Art.init(this)
         store = Store(this)
         tmdb = Tmdb(store)
         plex = Plex(store)

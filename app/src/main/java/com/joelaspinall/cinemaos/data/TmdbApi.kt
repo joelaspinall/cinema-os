@@ -42,6 +42,9 @@ interface TmdbApi {
 
     @GET("genre/{kind}/list") suspend fun genres(@Path("kind") kind: String): String
 
+    @GET("{kind}/{id}/images")
+    suspend fun images(@Path("kind") kind: String, @Path("id") id: Int, @Query("include_image_language") languages: String = "en,null"): String
+
     companion object {
         fun create(tokenProvider: () -> String, dao: CinemaDao?): TmdbApi {
             val client = Http.client.newBuilder()

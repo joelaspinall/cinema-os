@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -34,6 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
+import com.joelaspinall.cinemaos.data.Art
 import com.joelaspinall.cinemaos.data.Film
 import com.joelaspinall.cinemaos.data.FilmDetails
 import com.joelaspinall.cinemaos.data.Quality
@@ -74,25 +77,27 @@ fun DetailScreen(vm: AppViewModel, film: Film, open: (Film) -> Unit, play: (Film
     val f = details?.film?.copy(plexKey = film.plexKey ?: plexCopy?.plexKey) ?: film
     val first = remember { FocusRequester() }
     val apple = serviceById("apple")
+    val logo by produceState<String?>(null, id) {
+        value = id?.let { if (c.tmdb.isConfigured) runCatching { c.tmdb.logo(it) }.getOrNull() else null }
+    }
 
     Box(Modifier.fillMaxSize()) {
-        AsyncImage(
-            model = f.backdrop ?: film.backdrop,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize().alpha(0.45f),
-        )
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.horizontalGradient(0f to Bg, 0.55f to Bg.copy(alpha = 0.85f), 1f to Color.Transparent),
-            ),
-        )
-        LazyColumn(contentPadding = PaddingValues(top = 56.dp, bottom = 48.dp)) {
+        Backdrop(if (f.backdrop != null) f else film, dim = 0.15f)
+        Glide(PivotColumn) {
+        LazyColumn(contentPadding = PaddingValues(top = 150.dp, bottom = 60.dp)) {
             item {
-                Row(Modifier.padding(horizontal = 56.dp)) {
-                    Column(Modifier.width(720.dp)) {
-                        Text(f.title, style = Type.hero, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Gap(8.dp)
+                Row(Modifier.padding(horizontal = SafeX)) {
+                    Column(Modifier.width(760.dp)) {
+                        if (logo != null) {
+                            AsyncImage(
+                                model = Art.logo(logo), contentDescription = f.title,
+                                contentScale = ContentScale.Fit, alignment = Alignment.BottomStart,
+                                modifier = Modifier.heightIn(max = 140.dp).widthIn(max = 520.dp),
+                            )
+                        } else {
+                            Text(f.title, style = Type.display, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                        Gap(14.dp)
                         val meta = listOfNotNull(
                             f.year?.toString(),
                             details?.runtime?.let { "${it / 60}h ${it % 60}m" },
@@ -160,7 +165,7 @@ fun DetailScreen(vm: AppViewModel, film: Film, open: (Film) -> Unit, play: (Film
                     }
                 }
                 if (lines.isNotEmpty()) {
-                    Column(Modifier.padding(start = 56.dp, top = 4.dp)) {
+                    Column(Modifier.padding(start = SafeX, top = 4.dp)) {
                         Text("Picture & sound", style = Type.small.copy(color = Fg))
                         Gap(6.dp)
                         lines.forEach { (source, quality, note) ->
@@ -175,7 +180,7 @@ fun DetailScreen(vm: AppViewModel, film: Film, open: (Film) -> Unit, play: (Film
             }
             item {
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 56.dp, vertical = 16.dp),
+                    contentPadding = PaddingValues(horizontal = SafeX, vertical = 18.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     var firstSet = false
@@ -213,6 +218,7 @@ fun DetailScreen(vm: AppViewModel, film: Film, open: (Film) -> Unit, play: (Film
                     FilmRow("More like this", related, onOpen = open)
                 }
             }
+        }
         }
     }
 }

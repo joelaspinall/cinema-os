@@ -96,7 +96,7 @@ class Plex(private val store: Store) {
     private suspend fun <T> withServer(block: suspend () -> T): T =
         try { block() } catch (e: Exception) { if (findServer()) block() else throw e }
 
-    fun image(thumb: String?, w: Int = 342, h: Int = 513): String? {
+    fun image(thumb: String?, w: Int = if (Art.is4k) 780 else 500, h: Int = w * 3 / 2): String? {
         thumb ?: return null
         val u = Uri.parse("${s.plexServerUri}/photo/:/transcode").buildUpon()
             .appendQueryParameter("width", "$w").appendQueryParameter("height", "$h")
@@ -122,7 +122,7 @@ class Plex(private val store: Store) {
             title = m.str("title") ?: return null,
             year = m.int("year"),
             poster = image(m.str("thumb")),
-            backdrop = image(m.str("art"), 1280, 720),
+            backdrop = image(m.str("art"), if (Art.is4k) 3840 else 1920, if (Art.is4k) 2160 else 1080),
             overview = m.str("summary"),
             plexKey = key,
         )

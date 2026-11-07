@@ -90,77 +90,29 @@ fun MainScreen(vm: AppViewModel, tab: String, onTab: (String) -> Unit, open: (Fi
     }
 }
 
-/** The big title area at the top of Home and Plex, over the backdrop. */
-@Composable
-fun Hero(
-    film: Film?,
-    kicker: String,
-    onDetails: () -> Unit,
-    onFocus: () -> Unit,
-    extra: @Composable () -> Unit = {},
-) {
-    Column(
-        Modifier.fillMaxWidth().height(330.dp).padding(start = 64.dp, bottom = 12.dp),
-        verticalArrangement = Arrangement.Bottom,
-    ) {
-        if (film == null) return@Column
-        Text(kicker.uppercase(), style = Type.small.copy(color = White.copy(alpha = 0.75f)))
-        Gap(6.dp)
-        Text(film.title, style = Type.hero, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(900.dp))
-        film.year?.let { Text(it.toString(), style = Type.body.copy(color = Dim)) }
-        Gap(10.dp)
-        Text(
-            film.overview ?: "", style = Type.body, maxLines = 3, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.width(680.dp),
-        )
-        Gap(20.dp)
-        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Action("More info", onDetails, Modifier.onFocusChanged { if (it.isFocused) onFocus() }, primary = true)
-            extra()
-        }
-    }
-}
-
 @Composable
 fun HomeTab(vm: AppViewModel, open: (Film) -> Unit, goSettings: () -> Unit) {
-    val rows = vm.homeRows
-    val featured = rows.firstOrNull()?.films?.firstOrNull { it.backdrop != null }
-    var focused by remember { mutableStateOf<Film?>(null) }
     val needsSetup = !vm.c.tmdb.isConfigured || !vm.c.plex.isSignedIn
-
-    Box(Modifier.fillMaxSize()) {
-        Backdrop(focused ?: featured)
-        // Starts below the floating menu, so "down" from the menu has somewhere to go.
-        LazyColumn(Modifier.padding(top = HERO_TOP), contentPadding = PaddingValues(bottom = 60.dp)) {
-            item {
-                if (featured != null) {
-                    Hero(featured, rows.first().title, onDetails = { open(featured) }, onFocus = { focused = featured })
-                } else {
-                    Column(Modifier.height(200.dp).padding(start = 64.dp), verticalArrangement = Arrangement.Bottom) {
-                        Text("Cinema OS", style = Type.hero)
-                        Text(if (vm.loading) "Loading your films…" else "Finish setup in Settings to fill this page.", style = Type.body.copy(color = Dim))
-                    }
-                }
+    Immersive(
+        vm = vm,
+        rows = vm.homeRows.map { it.title to it.films },
+        open = open,
+        kicker = vm.homeRows.firstOrNull()?.title ?: "Cinema OS",
+        emptyTitle = "Cinema OS",
+        emptyLine = if (vm.loading) "Loading your films…" else "Finish setup in Settings to fill this page.",
+        top = if (needsSetup) ({
+            Row(Modifier.padding(horizontal = SafeX, vertical = 12.dp)) {
+                Action(
+                    buildString {
+                        append("Finish setting up: ")
+                        append(listOfNotNull(
+                            "add your TMDB key".takeIf { !vm.c.tmdb.isConfigured },
+                            "sign in to Plex".takeIf { !vm.c.plex.isSignedIn },
+                        ).joinToString(" and "))
+                    },
+                    goSettings,
+                )
             }
-            if (needsSetup) {
-                item {
-                    Row(Modifier.padding(horizontal = 64.dp, vertical = 12.dp)) {
-                        Action(
-                            buildString {
-                                append("Finish setting up: ")
-                                append(listOfNotNull(
-                                    "add your TMDB key".takeIf { !vm.c.tmdb.isConfigured },
-                                    "sign in to Plex".takeIf { !vm.c.plex.isSignedIn },
-                                ).joinToString(" and "))
-                            },
-                            goSettings,
-                        )
-                    }
-                }
-            }
-            items(rows, key = { it.title }) { row ->
-                FilmRow(row.title, row.films, onOpen = open, onFocus = { focused = it })
-            }
-        }
-    }
+        }) else null,
+    )
 }

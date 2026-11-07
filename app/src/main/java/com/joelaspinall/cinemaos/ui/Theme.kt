@@ -8,7 +8,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.tv.material3.ProvideTextStyle
+import com.joelaspinall.cinemaos.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
@@ -29,14 +33,29 @@ val Dim = Color(0xFF8E8E93)
 val Gold = Color(0xFFFFD60A)           // stars and ratings only
 val Green = Color(0xFF30D158)
 
+/** Inter: a clean, neutral typeface in the spirit of Apple's San Francisco. Bundled, so it works offline. */
+val Inter = FontFamily(
+    Font(R.font.inter_regular, FontWeight.Normal),
+    Font(R.font.inter_medium, FontWeight.Medium),
+    Font(R.font.inter_semibold, FontWeight.SemiBold),
+    Font(R.font.inter_bold, FontWeight.Bold),
+    Font(R.font.inter_extrabold, FontWeight.ExtraBold),
+)
+
+/** One type scale for the whole app, sized for reading from the sofa. */
 object Type {
-    val hero = TextStyle(fontSize = 44.sp, fontWeight = FontWeight.Bold, color = Fg, letterSpacing = (-0.5).sp)
-    val h1 = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Fg)
-    val h2 = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.SemiBold, color = Fg)
-    val body = TextStyle(fontSize = 16.sp, color = Fg, lineHeight = 23.sp)
-    val small = TextStyle(fontSize = 13.sp, color = Dim)
+    /** Big titles over backdrops. */
+    val display = TextStyle(fontFamily = Inter, fontSize = 52.sp, fontWeight = FontWeight.ExtraBold, color = Fg, letterSpacing = (-1.2).sp, lineHeight = 56.sp)
+    val hero = TextStyle(fontFamily = Inter, fontSize = 40.sp, fontWeight = FontWeight.Bold, color = Fg, letterSpacing = (-0.8).sp, lineHeight = 46.sp)
+    val h1 = TextStyle(fontFamily = Inter, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Fg, letterSpacing = (-0.4).sp)
+    /** Row titles. */
+    val h2 = TextStyle(fontFamily = Inter, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Fg, letterSpacing = (-0.2).sp)
+    val body = TextStyle(fontFamily = Inter, fontSize = 16.sp, color = Fg, lineHeight = 24.sp)
+    val small = TextStyle(fontFamily = Inter, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Dim)
+    /** Small capitals above a title, e.g. "RECOMMENDED FOR YOU". */
+    val kicker = TextStyle(fontFamily = Inter, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Fg.copy(alpha = 0.7f), letterSpacing = 1.6.sp)
     /** No colour, so it follows the button's focused/unfocused text colour. */
-    val label = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+    val label = TextStyle(fontFamily = Inter, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
 }
 
 @Composable
@@ -50,8 +69,9 @@ fun CinemaTheme(content: @Composable () -> Unit) {
             surface = Panel,
             onSurface = Fg,
         ),
-        content = content,
-    )
+    ) {
+        ProvideTextStyle(TextStyle(fontFamily = Inter, color = Fg)) { content() }
+    }
 }
 
 /**

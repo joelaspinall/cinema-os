@@ -72,16 +72,18 @@ fun PosterGrid(films: List<Film>, open: (Film) -> Unit, onNearEnd: (() -> Unit)?
                 .collect { if (films.isNotEmpty() && it >= films.size - 14) onNearEnd() }
         }
     }
+    Glide(PivotColumn) {
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(132.dp),
+        columns = GridCells.Adaptive(150.dp),
         state = state,
         contentPadding = PaddingValues(start = 64.dp, end = 64.dp, top = 16.dp, bottom = 60.dp),
         horizontalArrangement = Arrangement.spacedBy(24.dp),
         verticalArrangement = Arrangement.spacedBy(28.dp),
     ) {
         items(films, key = { (it.tmdbId?.toString() ?: "") + (it.plexKey ?: "") + it.key }) { f ->
-            PosterCard(f, onClick = { open(f) }, width = 124.dp, badge = badges(f))
+            PosterCard(f, onClick = { open(f) }, width = 140.dp, badge = badges(f))
         }
+    }
     }
 }
 

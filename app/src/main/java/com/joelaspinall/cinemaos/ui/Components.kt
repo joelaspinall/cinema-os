@@ -43,6 +43,7 @@ import coil.compose.AsyncImage
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
+import com.joelaspinall.cinemaos.data.Art
 import com.joelaspinall.cinemaos.data.Film
 import com.joelaspinall.cinemaos.data.StoreData
 import com.joelaspinall.cinemaos.data.filmKey
@@ -101,10 +102,11 @@ fun PosterCard(
             modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f)
                 .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocus?.invoke(film) },
             focusedScale = 1.1f,
+            outline = true,
         ) {
             if (film.poster != null) {
                 AsyncImage(
-                    model = film.poster, contentDescription = film.title,
+                    model = Art.poster(film.poster), contentDescription = film.title,
                     contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
                 )
             } else {
@@ -126,7 +128,7 @@ fun PosterCard(
 /** Wide 16:9 card with the film's backdrop, like the Apple TV app's rows. */
 @Composable
 fun LandscapeCard(
-    film: Film, onClick: () -> Unit, width: Dp = 300.dp, badge: String? = null,
+    film: Film, onClick: () -> Unit, width: Dp = 320.dp, badge: String? = null,
     onFocus: ((Film) -> Unit)? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -136,8 +138,9 @@ fun LandscapeCard(
             modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
                 .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocus?.invoke(film) },
             focusedScale = 1.1f,
+            outline = true,
         ) {
-            val art = film.backdrop ?: film.poster
+            val art = Art.card(film.backdrop) ?: Art.poster(film.poster)
             if (art != null) {
                 AsyncImage(
                     model = art, contentDescription = film.title,
@@ -173,14 +176,16 @@ fun FilmRow(
     wide: Boolean = true,
 ) {
     Column(Modifier.padding(bottom = 8.dp)) {
-        Text(title, style = Type.h2, modifier = Modifier.padding(start = 64.dp, bottom = 4.dp))
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 64.dp, vertical = 18.dp),
-            horizontalArrangement = Arrangement.spacedBy(28.dp),
-        ) {
+        Text(title, style = Type.h2, modifier = Modifier.padding(start = SafeX, bottom = 2.dp))
+        Glide(PivotRow) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = SafeX, vertical = 22.dp),
+                horizontalArrangement = Arrangement.spacedBy(28.dp),
+            ) {
             items(films, key = { (it.tmdbId?.toString() ?: "") + (it.plexKey ?: "") + it.key }) { f ->
                 if (wide) LandscapeCard(f, onClick = { onOpen(f) }, badge = badges(f), onFocus = onFocus)
                 else PosterCard(f, onClick = { onOpen(f) }, badge = badges(f), onFocus = onFocus)
+            }
             }
         }
     }
@@ -203,33 +208,6 @@ fun Action(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, pri
         focusedContent = Bg,
     ) {
         Text(text, style = Type.label, modifier = Modifier.padding(horizontal = 26.dp, vertical = 13.dp))
-    }
-}
-
-/** The big blurred-feeling backdrop behind Home and Plex, fading into the page. */
-@Composable
-fun Backdrop(film: Film?) {
-    val context = LocalContext.current
-    Box(Modifier.fillMaxSize()) {
-        val url = film?.backdrop
-        if (url != null) {
-            AsyncImage(
-                model = ImageRequest.Builder(context).data(url).crossfade(500).build(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(0f to Color(0x66000000), 0.45f to Color(0x33000000), 0.75f to Bg.copy(alpha = 0.92f), 1f to Bg),
-            ),
-        )
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.horizontalGradient(0f to Color(0xCC000000), 0.5f to Color(0x33000000), 1f to Color.Transparent),
-            ),
-        )
     }
 }
 
