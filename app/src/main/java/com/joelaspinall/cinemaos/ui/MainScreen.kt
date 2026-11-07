@@ -33,6 +33,9 @@ import com.joelaspinall.cinemaos.data.Film
 
 data class Tab(val id: String, val label: String)
 
+/** Where page content starts, just below the floating menu. */
+val HERO_TOP = 96.dp
+
 /** Tabs that draw their own full-screen backdrop under the floating menu. */
 private val HERO_TABS = setOf("home", "plex")
 
@@ -97,7 +100,7 @@ fun Hero(
     extra: @Composable () -> Unit = {},
 ) {
     Column(
-        Modifier.fillMaxWidth().height(500.dp).padding(start = 64.dp, bottom = 20.dp),
+        Modifier.fillMaxWidth().height(330.dp).padding(start = 64.dp, bottom = 12.dp),
         verticalArrangement = Arrangement.Bottom,
     ) {
         if (film == null) return@Column
@@ -127,12 +130,13 @@ fun HomeTab(vm: AppViewModel, open: (Film) -> Unit, goSettings: () -> Unit) {
 
     Box(Modifier.fillMaxSize()) {
         Backdrop(focused ?: featured)
-        LazyColumn(contentPadding = PaddingValues(bottom = 60.dp)) {
+        // Starts below the floating menu, so "down" from the menu has somewhere to go.
+        LazyColumn(Modifier.padding(top = HERO_TOP), contentPadding = PaddingValues(bottom = 60.dp)) {
             item {
                 if (featured != null) {
                     Hero(featured, rows.first().title, onDetails = { open(featured) }, onFocus = { focused = featured })
                 } else {
-                    Column(Modifier.height(260.dp).padding(start = 64.dp), verticalArrangement = Arrangement.Bottom) {
+                    Column(Modifier.height(200.dp).padding(start = 64.dp), verticalArrangement = Arrangement.Bottom) {
                         Text("Cinema OS", style = Type.hero)
                         Text(if (vm.loading) "Loading your films…" else "Finish setup in Settings to fill this page.", style = Type.body.copy(color = Dim))
                     }

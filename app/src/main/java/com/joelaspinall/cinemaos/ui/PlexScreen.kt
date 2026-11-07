@@ -65,7 +65,7 @@ fun PlexTab(vm: AppViewModel, open: (Film) -> Unit, goSettings: () -> Unit) {
 
     Box(Modifier.fillMaxSize()) {
         Backdrop(focused ?: featured)
-        LazyColumn(contentPadding = PaddingValues(bottom = 60.dp)) {
+        LazyColumn(Modifier.padding(top = HERO_TOP), contentPadding = PaddingValues(bottom = 60.dp)) {
             item {
                 if (featured != null) {
                     Hero(
@@ -78,7 +78,7 @@ fun PlexTab(vm: AppViewModel, open: (Film) -> Unit, goSettings: () -> Unit) {
                         Action("Refresh", { vm.refresh() })
                     }
                 } else {
-                    Column(Modifier.height(320.dp).padding(start = 64.dp), verticalArrangement = Arrangement.Bottom) {
+                    Column(Modifier.height(240.dp).padding(start = 64.dp), verticalArrangement = Arrangement.Bottom) {
                         Text(vm.c.store.settings.value.plexServerName.ifBlank { "Plex" }, style = Type.hero)
                         Text(
                             when {
