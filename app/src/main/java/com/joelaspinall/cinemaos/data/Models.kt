@@ -112,7 +112,9 @@ data class Settings(
     val plexServerToken: String = "",
     val services: List<String> = listOf("netflix", "prime", "disney", "hbo", "apple"),
     /** Which plan Joel has on each service (service id -> plan id), for quality info. */
-    val plans: Map<String, String> = emptyMap(),
+    val plans: Map<String, String> = mapOf(
+        "netflix" to "ads", "prime" to "ads", "disney" to "premium", "hbo" to "premium",
+    ),
     val updateUrl: String = "https://github.com/joelaspinall/cinema-os/releases/latest/download/cinema-os.apk",
 )
 
