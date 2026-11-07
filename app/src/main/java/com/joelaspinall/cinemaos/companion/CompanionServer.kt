@@ -82,6 +82,16 @@ class CompanionServer(
                 onChanged("history")
                 "Imported ${result.watched} watched films (${result.rated} rated) and ${result.watchlist} on your watchlist."
             }
+            "/apple" -> {
+                val text = files["file"]?.let { File(it).readText() }?.takeIf { it.isNotBlank() } ?: v("list")
+                val items = parseAppleList(text)
+                if (items.isEmpty()) "No films found — upload the apple-tv-films.txt file from your Mac, or paste titles one per line."
+                else {
+                    store.updateData { it.copy(appleImport = items) }
+                    onChanged("apple")
+                    "Got ${items.size} films. The TV is matching them now — they'll appear in “Your Apple TV library”."
+                }
+            }
             "/mark-exported" -> {
                 store.markExported(); onChanged("diary")
                 "Marked as imported. Next time you'll only get new entries."
@@ -96,6 +106,25 @@ class CompanionServer(
         }
         return page(msg)
     }
+
+    /** Accepts "Title<TAB>Year", "Title,Year", "Title (Year)" or just "Title", one per line. */
+    private fun parseAppleList(text: String): List<com.joelaspinall.cinemaos.data.HistoryItem> =
+        text.lines().map { it.trim() }.filter { it.isNotBlank() && !it.equals("name\tyear", true) }.mapNotNull { line ->
+            val tab = line.split('\t')
+            val (title, year) = when {
+                tab.size >= 2 -> tab[0].trim() to tab[1].trim().take(4).toIntOrNull()
+                Regex("""^(.*)\s*\((\d{4})\)\s*$""").matches(line) -> {
+                    val m = Regex("""^(.*)\s*\((\d{4})\)\s*$""").find(line)!!
+                    m.groupValues[1].trim() to m.groupValues[2].toInt()
+                }
+                Regex("""^(.*),\s*(\d{4})$""").matches(line) -> {
+                    val m = Regex("""^(.*),\s*(\d{4})$""").find(line)!!
+                    m.groupValues[1].trim().trim('"') to m.groupValues[2].toInt()
+                }
+                else -> line to null
+            }
+            title.takeIf { it.isNotBlank() }?.let { com.joelaspinall.cinemaos.data.HistoryItem(it, year) }
+        }.distinctBy { it.title.lowercase() + it.year }
 
     private fun exportFile(): Response {
         val entries = store.unexported()
@@ -161,7 +190,17 @@ Free at <a href="https://www.themoviedb.org/settings/api" target=_blank>themovie
 </section>
 
 <section>
-<h2>4 · Your services &amp; plans</h2>
+<h2>4 · Apple TV purchases</h2>
+<p class=dim>${if (d.appleOwned.isNotEmpty()) "${d.appleOwned.size} films in your Apple TV library${d.appleImportedAt?.let { " (updated $it)" } ?: ""}." else "Not imported yet."}
+Run the command from Claude on your Mac, then upload <b>apple-tv-films.txt</b> from your Desktop — or paste titles below, one per line.</p>
+<form method=post enctype="multipart/form-data" action="/apple?k=$k">
+<input type=file name=file accept=".txt,.csv"><br>
+<textarea name=list rows=4 placeholder="Dune: Part Two (2024)"></textarea><br>
+<button>Add to Apple TV library</button></form>
+</section>
+
+<section>
+<h2>5 · Your services &amp; plans</h2>
 <p class=dim>Your plan sets the best quality the app shows for each service (4K, Dolby Vision, Atmos…).</p>
 <form method=post action="/services?k=$k">$svcBoxes<br><button>Save</button></form>
 </section>
@@ -178,6 +217,7 @@ h1{font-size:28px;margin:8px 0 16px}h2{font-size:18px;margin:0 0 8px}section{bac
 .gold{color:#e8aa42}.dim{color:#9a958c}.msg{background:#2b2414;border:1px solid #e8aa42;border-radius:10px;padding:10px 12px;margin-bottom:16px}
 .svc{margin:6px 0}select{font:inherit;background:#0e0e14;color:inherit;border:1px solid #3a3a48;border-radius:8px;padding:6px;max-width:100%}
 input{font:inherit;background:#0e0e14;color:inherit;border:1px solid #3a3a48;border-radius:8px;padding:8px 10px;max-width:100%}
+textarea{font:inherit;width:100%;box-sizing:border-box;background:#0e0e14;color:inherit;border:1px solid #3a3a48;border-radius:8px;padding:8px;margin:8px 0}
 input[name=token]{width:100%;box-sizing:border-box;margin-bottom:8px}button,.btn{font:inherit;background:#e8aa42;color:#0e0e14;border:0;border-radius:8px;padding:8px 14px;font-weight:600;text-decoration:none;display:inline-block;cursor:pointer}
 ol{padding-left:20px}li{margin:8px 0}form{margin:8px 0}a{color:#e8aa42}.chk{display:inline-block;margin:4px 12px 4px 0}
 table{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}td,th{padding:6px 4px;border-bottom:1px solid #2a2a36;text-align:left}

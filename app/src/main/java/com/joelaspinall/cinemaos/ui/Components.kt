@@ -20,7 +20,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
+import coil.request.ImageRequest
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,16 +74,38 @@ fun stars(r: Double?): String =
     r?.let { "★".repeat(it.toInt()) + if (it % 1.0 != 0.0) "½" else "" } ?: ""
 
 @Composable
-fun PosterCard(film: Film, onClick: () -> Unit, width: Dp = 140.dp, badge: String? = null) {
+private fun Badge(film: Film, badge: String?, modifier: Modifier) {
     val marks = LocalMarks.current
+    if (!marks.seen(film) && badge == null) return
+    Row(
+        modifier.padding(8.dp)
+            .clip(RoundedCornerShape(7.dp)).background(Color(0xB3000000))
+            .padding(horizontal = 7.dp, vertical = 2.dp),
+    ) {
+        val r = marks.rating(film)
+        val text = badge ?: if (r != null) stars(r) else "✓"
+        Text(text, style = Type.small.copy(color = if (badge != null) White else Gold))
+    }
+}
+
+/** Portrait poster, used in full catalogue grids. */
+@Composable
+fun PosterCard(
+    film: Film, onClick: () -> Unit, width: Dp = 140.dp, badge: String? = null,
+    onFocus: ((Film) -> Unit)? = null,
+) {
+    var focused by remember { mutableStateOf(false) }
     Column(Modifier.width(width)) {
-        Tile(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f), focusedScale = 1.08f) {
+        Tile(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f)
+                .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocus?.invoke(film) },
+            focusedScale = 1.1f,
+        ) {
             if (film.poster != null) {
                 AsyncImage(
-                    model = film.poster,
-                    contentDescription = film.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
+                    model = film.poster, contentDescription = film.title,
+                    contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
                 )
             } else {
                 Text(
@@ -84,55 +113,122 @@ fun PosterCard(film: Film, onClick: () -> Unit, width: Dp = 140.dp, badge: Strin
                     modifier = Modifier.align(Alignment.Center).padding(10.dp),
                 )
             }
-            val seen = marks.seen(film)
-            if (seen || badge != null) {
-                Row(
-                    Modifier.align(Alignment.TopEnd).padding(6.dp)
-                        .clip(RoundedCornerShape(6.dp)).background(Color(0xCC0E0E14))
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                ) {
-                    val r = marks.rating(film)
-                    val text = badge ?: if (r != null) stars(r) else "✓"
-                    Text(text, style = Type.small.copy(color = if (badge != null) Fg else Gold))
-                }
-            }
+            Badge(film, badge, Modifier.align(Alignment.TopEnd))
         }
         Text(
-            film.title, style = Type.small, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 6.dp, start = 2.dp),
+            film.title, style = Type.small.copy(color = if (focused) White else Dim),
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 10.dp, start = 2.dp),
+        )
+    }
+}
+
+/** Wide 16:9 card with the film's backdrop, like the Apple TV app's rows. */
+@Composable
+fun LandscapeCard(
+    film: Film, onClick: () -> Unit, width: Dp = 300.dp, badge: String? = null,
+    onFocus: ((Film) -> Unit)? = null,
+) {
+    var focused by remember { mutableStateOf(false) }
+    Column(Modifier.width(width)) {
+        Tile(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocus?.invoke(film) },
+            focusedScale = 1.1f,
+        ) {
+            val art = film.backdrop ?: film.poster
+            if (art != null) {
+                AsyncImage(
+                    model = art, contentDescription = film.title,
+                    contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
+                )
+            }
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color(0xCC000000)),
+                ),
+            )
+            Text(
+                film.title, style = Type.h2, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+            )
+            Badge(film, badge, Modifier.align(Alignment.TopEnd))
+        }
+        Text(
+            listOfNotNull(film.year?.toString()).joinToString(),
+            style = Type.small.copy(color = if (focused) White else Color.Transparent),
+            modifier = Modifier.padding(top = 10.dp, start = 2.dp),
         )
     }
 }
 
 @Composable
-fun FilmRow(title: String, films: List<Film>, onOpen: (Film) -> Unit, badges: (Film) -> String? = { null }) {
-    Column(Modifier.padding(bottom = 18.dp)) {
-        Text(title, style = Type.h2, modifier = Modifier.padding(start = 48.dp, bottom = 10.dp))
+fun FilmRow(
+    title: String,
+    films: List<Film>,
+    onOpen: (Film) -> Unit,
+    badges: (Film) -> String? = { null },
+    onFocus: ((Film) -> Unit)? = null,
+    wide: Boolean = true,
+) {
+    Column(Modifier.padding(bottom = 8.dp)) {
+        Text(title, style = Type.h2, modifier = Modifier.padding(start = 64.dp, bottom = 4.dp))
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(horizontal = 64.dp, vertical = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(28.dp),
         ) {
             items(films, key = { (it.tmdbId?.toString() ?: "") + (it.plexKey ?: "") + it.key }) { f ->
-                PosterCard(f, onClick = { onOpen(f) }, badge = badges(f))
+                if (wide) LandscapeCard(f, onClick = { onOpen(f) }, badge = badges(f), onFocus = onFocus)
+                else PosterCard(f, onClick = { onOpen(f) }, badge = badges(f), onFocus = onFocus)
             }
         }
     }
 }
 
-/** A text button for actions ("Watch on Netflix", "Save", …). */
+/**
+ * Apple TV-style pill button: translucent grey normally, white with dark text
+ * when focused. [primary] buttons are white all the time.
+ */
 @Composable
 fun Action(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, primary: Boolean = false) {
     Tile(
         onClick = onClick,
         modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
-        container = if (primary) Gold else Panel,
-        focusedContainer = if (primary) Color(0xFFF4C26A) else PanelHi,
+        shape = RoundedCornerShape(12.dp),
+        focusedScale = 1.08f,
+        container = if (primary) White else Glass,
+        focusedContainer = White,
+        content = if (primary) Bg else Fg,
+        focusedContent = Bg,
     ) {
-        Text(
-            text,
-            style = Type.label.copy(color = if (primary) Bg else Fg),
-            modifier = Modifier.padding(horizontal = 22.dp, vertical = 11.dp),
+        Text(text, style = Type.label, modifier = Modifier.padding(horizontal = 26.dp, vertical = 13.dp))
+    }
+}
+
+/** The big blurred-feeling backdrop behind Home and Plex, fading into the page. */
+@Composable
+fun Backdrop(film: Film?) {
+    val context = LocalContext.current
+    Box(Modifier.fillMaxSize()) {
+        val url = film?.backdrop
+        if (url != null) {
+            AsyncImage(
+                model = ImageRequest.Builder(context).data(url).crossfade(500).build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(0f to Color(0x66000000), 0.45f to Color(0x33000000), 0.75f to Bg.copy(alpha = 0.92f), 1f to Bg),
+            ),
+        )
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.horizontalGradient(0f to Color(0xCC000000), 0.5f to Color(0x33000000), 1f to Color.Transparent),
+            ),
         )
     }
 }

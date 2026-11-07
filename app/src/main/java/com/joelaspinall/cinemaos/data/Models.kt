@@ -99,6 +99,9 @@ data class StoreData(
     /** title|year -> TMDB id, so we only look each film up once. */
     val resolved: Map<String, Int> = emptyMap(),
     val historyImportedAt: String? = null,
+    /** Apple TV purchases uploaded from the phone page, waiting to be matched to TMDB. */
+    val appleImport: List<HistoryItem> = emptyList(),
+    val appleImportedAt: String? = null,
 )
 
 @Serializable

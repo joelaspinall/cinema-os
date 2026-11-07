@@ -67,7 +67,7 @@ fun RateDialog(vm: AppViewModel, req: RateRequest) {
                 .focusable()
                 .clip(RoundedCornerShape(14.dp))
                 .background(if (starsFocused) PanelHi else Panel)
-                .border(2.dp, if (starsFocused) Gold else Panel, RoundedCornerShape(14.dp))
+                .border(2.dp, if (starsFocused) White else Panel, RoundedCornerShape(14.dp))
                 .padding(horizontal = 24.dp, vertical = 14.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {

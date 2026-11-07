@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -52,14 +53,13 @@ private val SORTS = listOf(
 fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
     Tile(
         onClick = onClick,
-        shape = RoundedCornerShape(18.dp),
-        container = if (selected) Gold else Panel,
-        focusedContainer = if (selected) Gold else PanelHi,
+        shape = RoundedCornerShape(20.dp),
+        focusedScale = 1.06f,
+        container = if (selected) Color(0x40FFFFFF) else Glass,
+        focusedContainer = White,
+        focusedContent = Bg,
     ) {
-        Text(
-            text, style = Type.label.copy(color = if (selected) Bg else Fg),
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
-        )
+        Text(text, style = Type.label, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
     }
 }
 
@@ -75,9 +75,9 @@ fun PosterGrid(films: List<Film>, open: (Film) -> Unit, onNearEnd: (() -> Unit)?
     LazyVerticalGrid(
         columns = GridCells.Adaptive(132.dp),
         state = state,
-        contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 8.dp, bottom = 48.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+        contentPadding = PaddingValues(start = 64.dp, end = 64.dp, top = 16.dp, bottom = 60.dp),
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        verticalArrangement = Arrangement.spacedBy(28.dp),
     ) {
         items(films, key = { (it.tmdbId?.toString() ?: "") + (it.plexKey ?: "") + it.key }) { f ->
             PosterCard(f, onClick = { open(f) }, width = 124.dp, badge = badges(f))
@@ -121,7 +121,7 @@ fun BrowseTab(vm: AppViewModel, serviceId: String, open: (Film) -> Unit) {
 
     Column(Modifier.fillMaxSize()) {
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
+            contentPadding = PaddingValues(horizontal = 64.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(SORTS) { s -> Chip(s.first, s == sort) { sort = s } }
@@ -136,38 +136,6 @@ fun BrowseTab(vm: AppViewModel, serviceId: String, open: (Film) -> Unit) {
             shown.isEmpty() && busy -> Centered("Loading ${service.label}…")
             shown.isEmpty() -> Centered("Nothing here", "Try another genre.")
             else -> PosterGrid(shown, open, onNearEnd = { if (!busy && !done) wantMore++ })
-        }
-    }
-}
-
-@Composable
-fun PlexTab(vm: AppViewModel, open: (Film) -> Unit, goSettings: () -> Unit) {
-    val plex = vm.c.plex
-    if (!plex.isSignedIn) {
-        Column(Modifier.fillMaxSize().padding(48.dp)) {
-            Text("Plex isn't connected yet", style = Type.h1)
-            Gap(16.dp)
-            Action("Sign in to Plex", goSettings, primary = true)
-        }
-        return
-    }
-    var unseenOnly by remember { mutableStateOf(false) }
-    val marks = LocalMarks.current
-    val all = plex.library
-    val films = if (unseenOnly) all.filter { !marks.seen(it) } else all
-    Column(Modifier.fillMaxSize()) {
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            item { Chip("All ${all.size}", !unseenOnly) { unseenOnly = false } }
-            item { Chip("Not seen", unseenOnly) { unseenOnly = true } }
-            item { Chip("Refresh", false) { vm.refresh() } }
-        }
-        when {
-            all.isEmpty() && vm.loading -> Centered("Loading your Plex library…")
-            all.isEmpty() -> Centered("Plex library not available", vm.plexStatus ?: "Is the MacBook awake and running Plex?")
-            else -> PosterGrid(films, open, badges = { plex.resolution(it)?.takeIf { r -> r == "4K" } })
         }
     }
 }
@@ -199,16 +167,16 @@ fun SearchTab(vm: AppViewModel, open: (Film) -> Unit) {
             onValueChange = { query = it },
             singleLine = true,
             textStyle = Type.h2,
-            cursorBrush = SolidColor(Gold),
+            cursorBrush = SolidColor(White),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { }),
             modifier = Modifier
-                .padding(horizontal = 48.dp, vertical = 8.dp)
-                .width(640.dp)
+                .padding(horizontal = 64.dp, vertical = 8.dp)
+                .width(720.dp)
                 .focusRequester(focus)
                 .onFocusChanged { focused = it.isFocused }
                 .background(Panel, RoundedCornerShape(12.dp))
-                .border(2.dp, if (focused) Gold else PanelHi, RoundedCornerShape(12.dp))
+                .border(2.dp, if (focused) White else PanelHi, RoundedCornerShape(12.dp))
                 .padding(horizontal = 18.dp, vertical = 14.dp),
             decorationBox = { inner ->
                 Box {

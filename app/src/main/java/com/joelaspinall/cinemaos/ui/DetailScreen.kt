@@ -108,7 +108,7 @@ fun DetailScreen(vm: AppViewModel, film: Film, open: (Film) -> Unit, play: (Film
                                 style = Type.body.copy(color = Gold),
                             )
                         }
-                        details?.tagline?.let { Gap(12.dp); Text(it, style = Type.body.copy(color = Gold)) }
+                        details?.tagline?.let { Gap(12.dp); Text(it, style = Type.body.copy(color = White.copy(alpha = 0.8f))) }
                         Gap(10.dp)
                         Text(f.overview ?: "", style = Type.body, maxLines = 5, overflow = TextOverflow.Ellipsis)
                         Gap(22.dp)
@@ -165,7 +165,7 @@ fun DetailScreen(vm: AppViewModel, film: Film, open: (Film) -> Unit, play: (Film
                         Gap(6.dp)
                         lines.forEach { (source, quality, note) ->
                             Row(Modifier.padding(vertical = 3.dp)) {
-                                Text(source, style = Type.body.copy(color = Gold), modifier = Modifier.width(170.dp))
+                                Text(source, style = Type.body.copy(color = White), modifier = Modifier.width(170.dp))
                                 Text(quality, style = Type.body, modifier = Modifier.width(420.dp))
                                 Text(note, style = Type.small)
                             }

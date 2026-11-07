@@ -21,6 +21,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withPermit
 
 /** [watchedDate] is the day Joel started watching, so a film finished after midnight keeps the right diary date. */
 data class RateRequest(val film: Film, val source: String, val heading: String, val watchedDate: String? = null)
@@ -40,17 +41,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var finish by mutableStateOf<FinishPrompt?>(null)
     private var refreshJob: Job? = null
 
-    private val order = listOf("deck", "forYou", "because0", "watchlist", "because1", "plexNew", "apple", "because2", "diary") +
+    private val order = listOf("forYou", "because0", "watchlist", "because1", "apple", "because2", "diary") +
         SERVICES.map { "svc:${it.id}" }
 
     val homeRows: List<Row> get() = order.mapNotNull { slots[it] }.filter { it.films.isNotEmpty() }
+
+    /** Plex has its own page, kept off Home. */
+    val plexDeck: List<Film> get() = slots["deck"]?.films.orEmpty()
+    val plexRecent: List<Film> get() = slots["plexNew"]?.films.orEmpty()
 
     val myServices: List<Service> get() = c.store.settings.value.services.mapNotNull { serviceById(it) }
 
     init {
         refresh()
         @OptIn(kotlinx.coroutines.FlowPreview::class)
-        viewModelScope.launch { c.events.debounce(800).collect { refresh() } }
+        viewModelScope.launch {
+            c.events.debounce(800).collect { e -> if (e == "apple") importApple() else refresh() }
+        }
+        if (c.store.data.value.appleImport.isNotEmpty()) importApple()
     }
 
     fun refresh() {
@@ -115,6 +123,35 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
         }.awaitAll()
         slots["diary"] = Row("Your recent diary", films)
+    }
+
+    /** Matches uploaded Apple TV purchases to TMDB films and adds them to the library. */
+    fun importApple() {
+        viewModelScope.launch {
+            val items = c.store.data.value.appleImport
+            if (items.isEmpty() || !c.tmdb.isConfigured) return@launch
+            val gate = kotlinx.coroutines.sync.Semaphore(6)
+            val found = coroutineScope {
+                items.map { item ->
+                    async {
+                        gate.withPermit {
+                            runCatching { c.tmdb.resolve(item.title, item.year)?.let { c.tmdb.film(it) } }.getOrNull()
+                        }
+                    }
+                }.awaitAll().filterNotNull()
+            }
+            c.store.updateData { d ->
+                val have = d.appleOwned.mapNotNull { it.tmdbId }.toHashSet()
+                d.copy(
+                    appleOwned = d.appleOwned + found.filter { it.tmdbId !in have }.distinctBy { it.tmdbId },
+                    appleImport = emptyList(),
+                    appleImportedAt = java.time.LocalDate.now().toString(),
+                )
+            }
+            appleRow()
+            val missed = items.size - found.size
+            toast = "Added ${found.size} films to your Apple TV library" + if (missed > 0) " ($missed couldn't be matched)" else ""
+        }
     }
 
     private fun appleRow() {

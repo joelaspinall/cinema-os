@@ -36,7 +36,7 @@ private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) 
         Modifier.padding(horizontal = 48.dp, vertical = 8.dp).fillMaxWidth()
             .background(Panel, RoundedCornerShape(14.dp)).padding(22.dp),
     ) {
-        Text(title, style = Type.h2.copy(color = Gold))
+        Text(title, style = Type.h2)
         Gap(10.dp)
         content()
     }
@@ -104,9 +104,9 @@ fun SettingsTab(vm: AppViewModel) {
                 when {
                     p != null -> {
                         Text("On your phone or MacBook, go to", style = Type.body)
-                        Text("plex.tv/link", style = Type.h1.copy(color = Gold))
+                        Text("plex.tv/link", style = Type.h1.copy(color = White))
                         Text("and enter", style = Type.body)
-                        Text(p.code, style = Type.hero.copy(fontSize = 56.sp, color = Gold))
+                        Text(p.code, style = Type.hero.copy(fontSize = 56.sp, color = White))
                         Gap(8.dp)
                         Action("Cancel", { pin = null })
                     }
