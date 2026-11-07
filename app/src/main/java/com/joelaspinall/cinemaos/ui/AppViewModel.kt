@@ -22,7 +22,11 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 
-data class RateRequest(val film: Film, val source: String, val heading: String)
+/** [watchedDate] is the day Joel started watching, so a film finished after midnight keeps the right diary date. */
+data class RateRequest(val film: Film, val source: String, val heading: String, val watchedDate: String? = null)
+
+fun dayOf(millis: Long): String =
+    java.time.Instant.ofEpochMilli(millis).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()
 data class FinishPrompt(val pending: PendingWatch, val likelyFinished: Boolean)
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
@@ -152,7 +156,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         c.store.updateData { it.copy(pending = null) }
         if (finished) {
             val label = serviceById(f.pending.serviceId)?.label ?: "streaming"
-            rate = RateRequest(f.pending.film, f.pending.serviceId, "How was ${f.pending.film.title}?  (watched on $label)")
+            rate = RateRequest(
+                f.pending.film, f.pending.serviceId, "How was ${f.pending.film.title}?  (watched on $label)",
+                watchedDate = dayOf(f.pending.startedAt),
+            )
         }
     }
 
@@ -161,16 +168,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun saveRating(req: RateRequest, rating: Double?, rewatch: Boolean) {
-        c.store.logWatch(req.film, rating, rewatch, req.source)
+        c.store.logWatch(req.film, rating, rewatch, req.source, req.watchedDate)
         rate = null
         val n = c.store.unexported().size
         toast = "Logged ${req.film.title} ${stars(rating)}  ·  $n waiting to send to Letterboxd (Settings → Phone)"
         viewModelScope.launch { diaryRow() }
     }
 
-    fun plexFinished(film: Film) {
+    fun plexFinished(film: Film, startedAt: Long) {
         viewModelScope.launch { c.plex.markWatched(film) }
-        rate = RateRequest(film, "plex", "You finished ${film.title} — how was it?")
+        rate = RateRequest(film, "plex", "You finished ${film.title} — how was it?", watchedDate = dayOf(startedAt))
     }
 
     fun toggleApple(film: Film) {

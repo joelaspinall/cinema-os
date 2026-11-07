@@ -44,13 +44,13 @@ class Store(context: Context) {
 
     // ---- Diary --------------------------------------------------------------
 
-    fun logWatch(film: Film, rating: Double?, rewatch: Boolean, source: String) {
+    fun logWatch(film: Film, rating: Double?, rewatch: Boolean, source: String, watchedDate: String? = null) {
         val entry = DiaryEntry(
             id = UUID.randomUUID().toString(),
             tmdbId = film.tmdbId,
             title = film.title,
             year = film.year,
-            watchedDate = LocalDate.now().toString(),
+            watchedDate = watchedDate ?: LocalDate.now().toString(),
             rating = rating,
             rewatch = rewatch,
             source = source,

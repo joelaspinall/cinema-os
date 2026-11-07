@@ -48,7 +48,7 @@ fun RateDialog(vm: AppViewModel, req: RateRequest) {
     DialogFrame(req.film.poster) {
         Text(req.heading, style = Type.h1)
         Gap(6.dp)
-        Text(listOfNotNull(req.film.year?.toString(), "Watched today").joinToString("  ·  "), style = Type.body.copy(color = Dim))
+        Text(listOfNotNull(req.film.year?.toString(), "Watched " + (req.watchedDate?.takeIf { it != java.time.LocalDate.now().toString() }?.let { java.time.LocalDate.parse(it).format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM")) } ?: "today")).joinToString("  ·  "), style = Type.body.copy(color = Dim))
         Gap(26.dp)
 
         Box(

@@ -36,6 +36,7 @@ fun PlayerScreen(vm: AppViewModel, film: Film, onExit: () -> Unit) {
     val copy = remember(film) { plex.find(film) ?: film }
     val url = remember(copy) { plex.streamUrl(copy) }
     var finished by remember { mutableStateOf(false) }
+    val startedAt = remember { System.currentTimeMillis() }
 
     if (url == null) {
         LaunchedEffect(Unit) { vm.toast = "Couldn't find the file on Plex — try Refresh on the Plex tab."; onExit() }
@@ -59,7 +60,7 @@ fun PlayerScreen(vm: AppViewModel, film: Film, onExit: () -> Unit) {
         val dur = player.duration
         val nearEnd = dur > 0 && pos >= dur * 0.9
         scope.launch { plex.saveProgress(copy, if (nearEnd) 0 else pos, dur.coerceAtLeast(0)) }
-        if (nearEnd) vm.plexFinished(copy)
+        if (nearEnd) vm.plexFinished(copy, startedAt)
         onExit()
     }
 
