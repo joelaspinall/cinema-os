@@ -97,7 +97,7 @@ class Tmdb(private val store: Store) {
     /** Looks up title artwork for many films in the background, so it's ready before Joel reaches them. */
     suspend fun prefetchLogos(ids: List<Int>) = kotlinx.coroutines.coroutineScope {
         val gate = kotlinx.coroutines.sync.Semaphore(4)
-        ids.distinct().filter { it !in logoCache }.forEach { id ->
+        ids.distinct().filter { !logoCache.containsKey(it) }.forEach { id ->
             launch { gate.acquire(); try { logo(id) } finally { gate.release() } }
         }
     }
